@@ -25,13 +25,17 @@ struct FileNode {
     IsDirectory = f.IsDirectory;
     Attributes = f.Attributes;
     Times = f.Times;
-    _data << f._data.rdbuf();
+    _data = f._data;
   }
 
   struct FileTimes {
     void Reset() {
       GetSystemTimeAsFileTime(&Creation);
       LastAccess = LastWrite = Creation;
+    }
+
+	static bool isEmpty(CONST FILETIME *fileTime) {
+      return fileTime->dwHighDateTime == 0 && fileTime->dwLowDateTime == 0;
     }
 
     FILETIME Creation;
@@ -45,11 +49,12 @@ struct FileNode {
   DWORD Attributes = 0;
   FileTimes Times;
 
-  size_t getFileSize() { return _data.str().length(); }
+  size_t getFileSize() { return _data.size(); }
+  void setEndOfFile(LONGLONG byteOffset) { _data.resize(byteOffset); }
 
 private:
   FileNode() = default;
 
   std::mutex _file_mutex;
-  std::stringstream _data;
+  std::vector<WCHAR> _data;
 };

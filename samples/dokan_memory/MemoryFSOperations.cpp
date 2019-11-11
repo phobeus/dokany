@@ -94,17 +94,18 @@ NTSTATUS ZwCreateFile(LPCWSTR FileName,
         (fileAttributesAndFlags & FILE_FLAG_DELETE_ON_CLOSE))
       return STATUS_CANNOT_DELETE;
 
-	// CREATE_NEW, CREATE_ALWAYS, or OPEN_ALWAYS
-	// Combines the file attributes and flags specified by dwFlagsAndAttributes with FILE_ATTRIBUTE_ARCHIVE
-	// All other file attributes override FILE_ATTRIBUTE_NORMAL
-	fileAttributesAndFlags &= ~FILE_ATTRIBUTE_NORMAL;
-	fileAttributesAndFlags |= FILE_ATTRIBUTE_ARCHIVE;
+    // CREATE_NEW, CREATE_ALWAYS, or OPEN_ALWAYS
+    // Combines the file attributes and flags specified by dwFlagsAndAttributes with FILE_ATTRIBUTE_ARCHIVE
+    // All other file attributes override FILE_ATTRIBUTE_NORMAL
+    fileAttributesAndFlags &= ~FILE_ATTRIBUTE_NORMAL;
+    fileAttributesAndFlags |= FILE_ATTRIBUTE_ARCHIVE;
 
     switch (creationDisposition) {
     case CREATE_ALWAYS: {
+      std::cout << "CREATE_ALWAYS" << std::endl;
       /*
-	  * Creates a new file, always.
-	  */
+       * Creates a new file, always.
+       */
       auto n = fileNodes->Add(std::make_shared<FileNode>(
           fileNameStr, false, fileAttributesAndFlags));
       if (n != STATUS_SUCCESS)
@@ -114,9 +115,10 @@ NTSTATUS ZwCreateFile(LPCWSTR FileName,
         return STATUS_OBJECT_NAME_COLLISION;
     } break;
     case CREATE_NEW: {
+      std::cout << "CREATE_NEW" << std::endl;
       /*
-	  * Creates a new file, only if it does not already exist.
-	  */
+       * Creates a new file, only if it does not already exist.
+       */
       if (fileNode)
         return STATUS_OBJECT_NAME_COLLISION;
       auto n = fileNodes->Add(std::make_shared<FileNode>(
@@ -125,41 +127,44 @@ NTSTATUS ZwCreateFile(LPCWSTR FileName,
         return n;
     } break;
     case OPEN_ALWAYS: {
+      std::cout << "OPEN_ALWAYS" << std::endl;
       /*
-	  * Opens a file, always.
-	  */
+       * Opens a file, always.
+       */
       if (!fileNode) {
         auto n = fileNodes->Add(std::make_shared<FileNode>(
-            fileNameStr, false,
-            fileAttributesAndFlags));
+            fileNameStr, false, fileAttributesAndFlags));
         if (n != STATUS_SUCCESS)
           return n;
       }
     } break;
     case OPEN_EXISTING: {
+      std::cout << "OPEN_EXISTING" << std::endl;
       /*
-	  * Opens a file or device, only if it exists.
-	  * If the specified file or device does not exist, the function fails and the last-error code is set to ERROR_FILE_NOT_FOUND
-	  */
+       * Opens a file or device, only if it exists.
+       * If the specified file or device does not exist, the function fails and the last-error code is set to ERROR_FILE_NOT_FOUND
+       */
       if (!fileNode)
         return STATUS_OBJECT_NAME_NOT_FOUND;
     } break;
     case TRUNCATE_EXISTING: {
+      std::cout << "TRUNCATE_EXISTING" << std::endl;
       /*
-	  * Opens a file and truncates it so that its size is zero bytes, only if it exists.
-	  *	If the specified file does not exist, the function fails and the last-error code is set to ERROR_FILE_NOT_FOUND
-	  */
+       * Opens a file and truncates it so that its size is zero bytes, only if it exists.
+       *	If the specified file does not exist, the function fails and the last-error code is set to ERROR_FILE_NOT_FOUND
+       */
       if (!fileNode)
         return STATUS_OBJECT_NAME_NOT_FOUND;
+      fileNode->setEndOfFile(0);
       // Todo reset fileNode buffer and attributes
     } break;
     }
   }
 
-  /* 
-  * CREATE_NEW && OPEN_ALWAYS
-  * If the specified file exists, the function fails and the last-error code is set to ERROR_FILE_EXISTS
-  */
+  /*
+   * CREATE_NEW && OPEN_ALWAYS
+   * If the specified file exists, the function fails and the last-error code is set to ERROR_FILE_EXISTS
+   */
   if (fileNode &&
       (creationDisposition == CREATE_NEW || creationDisposition == OPEN_ALWAYS))
     return STATUS_OBJECT_NAME_COLLISION;
@@ -170,12 +175,17 @@ NTSTATUS ZwCreateFile(LPCWSTR FileName,
 void Cleanup(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
-  if (DokanFileInfo->DeleteOnClose)
+  std::wcout << "Cleanup: " << fileNameStr << std::endl;
+  if (DokanFileInfo->DeleteOnClose) {
+    std::wcout << "\tDeleteOnClose: " << fileNameStr << std::endl;
     fileNodes->Remove(fileNameStr);
+  }
 }
 
 void CloseFile(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
-  //TODO
+  auto fileNodes = fs_instance;
+  auto fileNameStr = std::wstring(FileName);
+  std::wcout << "CloseFile: " << fileNameStr << std::endl;
 }
 
 NTSTATUS ReadFile(LPCWSTR FileName, LPVOID Buffer, DWORD BufferLength,
@@ -258,9 +268,16 @@ NTSTATUS SetFileAttributes(LPCWSTR FileName, DWORD FileAttributes,
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   auto fileNode = fileNodes->Find(fileNameStr);
-  std::wcout << "SetFileAttributes: " << fileNameStr << std::endl;
+  std::wcout << "SetFileAttributes: " << fileNameStr << " " << FileAttributes
+             << std::endl;
   if (!fileNode)
     return STATUS_OBJECT_NAME_NOT_FOUND;
+
+  // FILE_ATTRIBUTE_NORMAL is override if any other attribute is set
+  if (FileAttributes & FILE_ATTRIBUTE_NORMAL &&
+      (FileAttributes & (FileAttributes - 1)))
+    FileAttributes &= ~FILE_ATTRIBUTE_NORMAL;
+
   fileNode->Attributes = FileAttributes;
   return STATUS_SUCCESS;
 }
@@ -275,11 +292,11 @@ NTSTATUS SetFileTime(LPCWSTR FileName, CONST FILETIME *CreationTime,
   std::wcout << "SetFileTime: " << fileNameStr << std::endl;
   if (!fileNode)
     return STATUS_OBJECT_NAME_NOT_FOUND;
-  if (CreationTime)
+  if (CreationTime && !FileNode::FileTimes::isEmpty(CreationTime))
     fileNode->Times.Creation = *CreationTime;
-  if (LastAccessTime)
+  if (LastAccessTime && !FileNode::FileTimes::isEmpty(LastAccessTime))
     fileNode->Times.LastAccess = *LastAccessTime;
-  if (LastWriteTime)
+  if (LastWriteTime && !FileNode::FileTimes::isEmpty(LastWriteTime))
     fileNode->Times.LastWrite = *LastWriteTime;
   return STATUS_SUCCESS;
 }
@@ -325,6 +342,11 @@ NTSTATUS SetEndOfFile(LPCWSTR FileName, LONGLONG ByteOffset,
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   std::wcout << "SetEndOfFile: " << fileNameStr << std::endl;
+  auto fileNode = fileNodes->Find(fileNameStr);
+
+  if (!fileNode)
+    return STATUS_OBJECT_NAME_NOT_FOUND;
+  fileNode->setEndOfFile(ByteOffset);
   return STATUS_SUCCESS;
 }
 
@@ -333,6 +355,11 @@ NTSTATUS SetAllocationSize(LPCWSTR FileName, LONGLONG AllocSize,
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   std::wcout << "SetAllocationSize: " << fileNameStr << std::endl;
+  auto fileNode = fileNodes->Find(fileNameStr);
+
+  if (!fileNode)
+    return STATUS_OBJECT_NAME_NOT_FOUND;
+  fileNode->setEndOfFile(AllocSize);
   return STATUS_SUCCESS;
 }
 

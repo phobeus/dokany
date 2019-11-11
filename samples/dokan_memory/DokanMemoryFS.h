@@ -16,7 +16,7 @@ public:
     DOKAN_OPTIONS dokanOptions;
     ZeroMemory(&dokanOptions, sizeof(DOKAN_OPTIONS));
     dokanOptions.Version = DOKAN_VERSION;
-    dokanOptions.ThreadCount = 1;
+    dokanOptions.ThreadCount = 5;
     dokanOptions.Options = DOKAN_OPTION_STDERR | DOKAN_OPTION_DEBUG;
     dokanOptions.MountPoint = L"M";
     dokanOptions.GlobalContext = reinterpret_cast<ULONG64>(FileNodes.get());
