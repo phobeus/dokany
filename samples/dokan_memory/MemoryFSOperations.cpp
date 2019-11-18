@@ -1,11 +1,11 @@
+#include "MemoryFSOperations.h"
 #include "FileNode.h"
 #include "FileNodes.h"
-#include "MemoryFSOperations.h"
 
-#include <unordered_map>
-#include <sstream>
-#include <mutex>
 #include <iostream>
+#include <mutex>
+#include <sstream>
+#include <unordered_map>
 
 DOKAN_OPERATIONS MemoryFSOperations = {
     ZwCreateFile,
@@ -16,7 +16,7 @@ DOKAN_OPERATIONS MemoryFSOperations = {
     FlushFileBuffers,
     GetFileInformation,
     FindFiles,
-    nullptr, // FindFilesWithPattern
+    nullptr,  // FindFilesWithPattern
     SetFileAttributes,
     SetFileTime,
     DeleteFile,
@@ -30,8 +30,8 @@ DOKAN_OPERATIONS MemoryFSOperations = {
     GetVolumeInformation,
     Mounted,
     Unmounted,
-    nullptr, // GetFileSecurity
-    nullptr, // SetFileSecurity
+    GetFileSecurity,  // GetFileSecurity
+    nullptr,          // SetFileSecurity
 };
 
 NTSTATUS ZwCreateFile(LPCWSTR FileName,
@@ -57,7 +57,7 @@ NTSTATUS ZwCreateFile(LPCWSTR FileName,
   if (fileNode && fileNode->IsDirectory) {
     if (CreateOptions & FILE_NON_DIRECTORY_FILE)
       return STATUS_FILE_IS_A_DIRECTORY;
-    fileNode->IsDirectory = true;
+    DokanFileInfo->IsDirectory = true;
   }
 
   if (DokanFileInfo->IsDirectory) {
@@ -66,18 +66,15 @@ NTSTATUS ZwCreateFile(LPCWSTR FileName,
 
     if (creationDisposition == CREATE_NEW ||
         creationDisposition == OPEN_ALWAYS) {
-      if (fileNode)
-        return STATUS_OBJECT_NAME_COLLISION;
+      if (fileNode) return STATUS_OBJECT_NAME_COLLISION;
 
-      auto newfileNode = std::make_shared<FileNode>(fileNameStr, true,
-                                                    FILE_ATTRIBUTE_DIRECTORY);
+      auto newfileNode = std::make_shared<FileNode>(fileNameStr, true);
       return fileNodes->Add(newfileNode);
     }
 
-    if (fileNode && !fileNode->IsDirectory)
-      return STATUS_NOT_A_DIRECTORY;
-    if (!fileNode)
-      return STATUS_OBJECT_NAME_NOT_FOUND;
+    if (fileNode && !fileNode->IsDirectory) return STATUS_NOT_A_DIRECTORY;
+    if (!fileNode) return STATUS_OBJECT_NAME_NOT_FOUND;
+
   } else {
     std::wcout << "CreateFile: [" << fileNameStr << "] is file" << std::endl;
 
@@ -95,75 +92,73 @@ NTSTATUS ZwCreateFile(LPCWSTR FileName,
       return STATUS_CANNOT_DELETE;
 
     // CREATE_NEW, CREATE_ALWAYS, or OPEN_ALWAYS
-    // Combines the file attributes and flags specified by dwFlagsAndAttributes with FILE_ATTRIBUTE_ARCHIVE
-    // All other file attributes override FILE_ATTRIBUTE_NORMAL
+    // Combines the file attributes and flags specified by dwFlagsAndAttributes
+    // with FILE_ATTRIBUTE_ARCHIVE All other file attributes override
+    // FILE_ATTRIBUTE_NORMAL
     fileAttributesAndFlags &= ~FILE_ATTRIBUTE_NORMAL;
     fileAttributesAndFlags |= FILE_ATTRIBUTE_ARCHIVE;
 
     switch (creationDisposition) {
-    case CREATE_ALWAYS: {
-      std::cout << "CREATE_ALWAYS" << std::endl;
-      /*
-       * Creates a new file, always.
-       */
-      auto n = fileNodes->Add(std::make_shared<FileNode>(
-          fileNameStr, false, fileAttributesAndFlags));
-      if (n != STATUS_SUCCESS)
-        return n;
-
-      if (fileNode)
-        return STATUS_OBJECT_NAME_COLLISION;
-    } break;
-    case CREATE_NEW: {
-      std::cout << "CREATE_NEW" << std::endl;
-      /*
-       * Creates a new file, only if it does not already exist.
-       */
-      if (fileNode)
-        return STATUS_OBJECT_NAME_COLLISION;
-      auto n = fileNodes->Add(std::make_shared<FileNode>(
-          fileNameStr, false, fileAttributesAndFlags));
-      if (n != STATUS_SUCCESS)
-        return n;
-    } break;
-    case OPEN_ALWAYS: {
-      std::cout << "OPEN_ALWAYS" << std::endl;
-      /*
-       * Opens a file, always.
-       */
-      if (!fileNode) {
+      case CREATE_ALWAYS: {
+        std::cout << "CREATE_ALWAYS" << std::endl;
+        /*
+         * Creates a new file, always.
+         */
         auto n = fileNodes->Add(std::make_shared<FileNode>(
-            fileNameStr, false, fileAttributesAndFlags));
-        if (n != STATUS_SUCCESS)
-          return n;
-      }
-    } break;
-    case OPEN_EXISTING: {
-      std::cout << "OPEN_EXISTING" << std::endl;
-      /*
-       * Opens a file or device, only if it exists.
-       * If the specified file or device does not exist, the function fails and the last-error code is set to ERROR_FILE_NOT_FOUND
-       */
-      if (!fileNode)
-        return STATUS_OBJECT_NAME_NOT_FOUND;
-    } break;
-    case TRUNCATE_EXISTING: {
-      std::cout << "TRUNCATE_EXISTING" << std::endl;
-      /*
-       * Opens a file and truncates it so that its size is zero bytes, only if it exists.
-       *	If the specified file does not exist, the function fails and the last-error code is set to ERROR_FILE_NOT_FOUND
-       */
-      if (!fileNode)
-        return STATUS_OBJECT_NAME_NOT_FOUND;
-      fileNode->setEndOfFile(0);
-      // Todo reset fileNode buffer and attributes
-    } break;
+            fileNameStr, false, fileAttributesAndFlags, SecurityContext));
+        if (n != STATUS_SUCCESS) return n;
+
+        if (fileNode) return STATUS_OBJECT_NAME_COLLISION;
+      } break;
+      case CREATE_NEW: {
+        std::cout << "CREATE_NEW" << std::endl;
+        /*
+         * Creates a new file, only if it does not already exist.
+         */
+        if (fileNode) return STATUS_OBJECT_NAME_COLLISION;
+        auto n = fileNodes->Add(std::make_shared<FileNode>(
+            fileNameStr, false, fileAttributesAndFlags, SecurityContext));
+        if (n != STATUS_SUCCESS) return n;
+      } break;
+      case OPEN_ALWAYS: {
+        std::cout << "OPEN_ALWAYS" << std::endl;
+        /*
+         * Opens a file, always.
+         */
+        if (!fileNode) {
+          auto n = fileNodes->Add(std::make_shared<FileNode>(
+              fileNameStr, false, fileAttributesAndFlags, SecurityContext));
+          if (n != STATUS_SUCCESS) return n;
+        }
+      } break;
+      case OPEN_EXISTING: {
+        std::cout << "OPEN_EXISTING" << std::endl;
+        /*
+         * Opens a file or device, only if it exists.
+         * If the specified file or device does not exist, the function fails
+         * and the last-error code is set to ERROR_FILE_NOT_FOUND
+         */
+        if (!fileNode) return STATUS_OBJECT_NAME_NOT_FOUND;
+      } break;
+      case TRUNCATE_EXISTING: {
+        std::cout << "TRUNCATE_EXISTING" << std::endl;
+        /*
+         * Opens a file and truncates it so that its size is zero bytes, only if
+         * it exists. If the specified file does not exist, the function fails
+         * and the last-error code is set to ERROR_FILE_NOT_FOUND
+         */
+        if (!fileNode) return STATUS_OBJECT_NAME_NOT_FOUND;
+        fileNode->setEndOfFile(0);
+        fileNode->Attributes = FILE_ATTRIBUTE_ARCHIVE;
+        // Todo reset fileNode buffer and attributes
+      } break;
     }
   }
 
   /*
    * CREATE_NEW && OPEN_ALWAYS
-   * If the specified file exists, the function fails and the last-error code is set to ERROR_FILE_EXISTS
+   * If the specified file exists, the function fails and the last-error code is
+   * set to ERROR_FILE_EXISTS
    */
   if (fileNode &&
       (creationDisposition == CREATE_NEW || creationDisposition == OPEN_ALWAYS))
@@ -191,19 +186,19 @@ void CloseFile(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
 NTSTATUS ReadFile(LPCWSTR FileName, LPVOID Buffer, DWORD BufferLength,
                   LPDWORD ReadLength, LONGLONG Offset,
                   PDOKAN_FILE_INFO DokanFileInfo) {
-  //TODO
+  // TODO
   return STATUS_ACCESS_DENIED;
 }
 
 NTSTATUS WriteFile(LPCWSTR FileName, LPCVOID Buffer, DWORD NumberOfBytesToWrite,
                    LPDWORD NumberOfBytesWritten, LONGLONG Offset,
                    PDOKAN_FILE_INFO DokanFileInfo) {
-  //TODO
+  // TODO
   return STATUS_ACCESS_DENIED;
 }
 
 NTSTATUS FlushFileBuffers(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
-  //TODO
+  // TODO
   return STATUS_ACCESS_DENIED;
 }
 
@@ -213,8 +208,7 @@ NTSTATUS GetFileInformation(LPCWSTR FileName,
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   auto fileNode = fileNodes->Find(fileNameStr);
-  if (!fileNode)
-    return STATUS_OBJECT_NAME_NOT_FOUND;
+  if (!fileNode) return STATUS_OBJECT_NAME_NOT_FOUND;
   Buffer->dwFileAttributes = fileNode->Attributes;
   Buffer->ftCreationTime = fileNode->Times.Creation;
   Buffer->ftLastAccessTime = fileNode->Times.LastAccess;
@@ -223,7 +217,7 @@ NTSTATUS GetFileInformation(LPCWSTR FileName,
   Buffer->nFileSizeHigh = strLength >> 32;
   Buffer->nFileSizeLow = strLength & 0xffffffff;
 
-  //Improve this
+  // Improve this
   Buffer->nFileIndexHigh = Buffer->nFileIndexLow = 0;
   Buffer->nNumberOfLinks = 0;
   // Buffer->dwVolumeSerialNumber;
@@ -238,12 +232,12 @@ NTSTATUS FindFiles(LPCWSTR FileName, PFillFindData FillFindData,
   WIN32_FIND_DATAW findData;
   std::wcout << "FindFiles: " << fileNameStr << std::endl;
   ZeroMemory(&findData, sizeof(WIN32_FIND_DATAW));
-  for (const auto &fileNode : files) {
-    std::wcout << "FindFiles: " << fileNameStr << " fileNode "
-               << fileNode->FileName << std::endl;
-    auto fileName = fileNode->FilePath.filename().wstring();
-    if (fileName.length() > MAX_PATH)
-      continue;
+  for (const auto& fileNode : files) {
+    const auto fileNodeName = fileNode->getFileName();
+    std::wcout << "FindFiles: " << fileNameStr << " fileNode " << fileNodeName
+               << std::endl;
+    auto fileName = std::filesystem::path(fileNodeName).filename().wstring();
+    if (fileName.length() > MAX_PATH) continue;
     std::copy(fileName.begin(), fileName.end(), std::begin(findData.cFileName));
     findData.dwFileAttributes = fileNode->Attributes;
     findData.ftCreationTime = fileNode->Times.Creation;
@@ -270,8 +264,7 @@ NTSTATUS SetFileAttributes(LPCWSTR FileName, DWORD FileAttributes,
   auto fileNode = fileNodes->Find(fileNameStr);
   std::wcout << "SetFileAttributes: " << fileNameStr << " " << FileAttributes
              << std::endl;
-  if (!fileNode)
-    return STATUS_OBJECT_NAME_NOT_FOUND;
+  if (!fileNode) return STATUS_OBJECT_NAME_NOT_FOUND;
 
   // FILE_ATTRIBUTE_NORMAL is override if any other attribute is set
   if (FileAttributes & FILE_ATTRIBUTE_NORMAL &&
@@ -282,21 +275,20 @@ NTSTATUS SetFileAttributes(LPCWSTR FileName, DWORD FileAttributes,
   return STATUS_SUCCESS;
 }
 
-NTSTATUS SetFileTime(LPCWSTR FileName, CONST FILETIME *CreationTime,
-                     CONST FILETIME *LastAccessTime,
-                     CONST FILETIME *LastWriteTime,
+NTSTATUS SetFileTime(LPCWSTR FileName, CONST FILETIME* CreationTime,
+                     CONST FILETIME* LastAccessTime,
+                     CONST FILETIME* LastWriteTime,
                      PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   auto fileNode = fileNodes->Find(fileNameStr);
   std::wcout << "SetFileTime: " << fileNameStr << std::endl;
-  if (!fileNode)
-    return STATUS_OBJECT_NAME_NOT_FOUND;
-  if (CreationTime && !FileNode::FileTimes::isEmpty(CreationTime))
+  if (!fileNode) return STATUS_OBJECT_NAME_NOT_FOUND;
+  if (CreationTime && !FileTimes::isEmpty(CreationTime))
     fileNode->Times.Creation = *CreationTime;
-  if (LastAccessTime && !FileNode::FileTimes::isEmpty(LastAccessTime))
+  if (LastAccessTime && !FileTimes::isEmpty(LastAccessTime))
     fileNode->Times.LastAccess = *LastAccessTime;
-  if (LastWriteTime && !FileNode::FileTimes::isEmpty(LastWriteTime))
+  if (LastWriteTime && !FileTimes::isEmpty(LastWriteTime))
     fileNode->Times.LastWrite = *LastWriteTime;
   return STATUS_SUCCESS;
 }
@@ -307,11 +299,9 @@ NTSTATUS DeleteFile(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNode = fileNodes->Find(fileNameStr);
   std::wcout << "DeleteFile: " << fileNameStr << std::endl;
 
-  if (!fileNode)
-    return STATUS_OBJECT_NAME_NOT_FOUND;
+  if (!fileNode) return STATUS_OBJECT_NAME_NOT_FOUND;
 
-  if (fileNode->IsDirectory)
-    return STATUS_ACCESS_DENIED;
+  if (fileNode->IsDirectory) return STATUS_ACCESS_DENIED;
 
   return STATUS_SUCCESS;
 }
@@ -344,8 +334,7 @@ NTSTATUS SetEndOfFile(LPCWSTR FileName, LONGLONG ByteOffset,
   std::wcout << "SetEndOfFile: " << fileNameStr << std::endl;
   auto fileNode = fileNodes->Find(fileNameStr);
 
-  if (!fileNode)
-    return STATUS_OBJECT_NAME_NOT_FOUND;
+  if (!fileNode) return STATUS_OBJECT_NAME_NOT_FOUND;
   fileNode->setEndOfFile(ByteOffset);
   return STATUS_SUCCESS;
 }
@@ -357,8 +346,7 @@ NTSTATUS SetAllocationSize(LPCWSTR FileName, LONGLONG AllocSize,
   std::wcout << "SetAllocationSize: " << fileNameStr << std::endl;
   auto fileNode = fileNodes->Find(fileNameStr);
 
-  if (!fileNode)
-    return STATUS_OBJECT_NAME_NOT_FOUND;
+  if (!fileNode) return STATUS_OBJECT_NAME_NOT_FOUND;
   fileNode->setEndOfFile(AllocSize);
   return STATUS_SUCCESS;
 }
@@ -409,7 +397,27 @@ NTSTATUS GetFileSecurity(LPCWSTR FileName,
                          PSECURITY_DESCRIPTOR SecurityDescriptor,
                          ULONG BufferLength, PULONG LengthNeeded,
                          PDOKAN_FILE_INFO DokanFileInfo) {
-  return STATUS_NOT_IMPLEMENTED;
+  auto fileNodes = fs_instance;
+  auto fileNameStr = std::wstring(FileName);
+  std::wcout << "GetFileSecurity: " << fileNameStr << std::endl;
+  auto fileNode = fileNodes->Find(fileNameStr);
+
+  if (!fileNode) return STATUS_OBJECT_NAME_NOT_FOUND;
+
+  std::lock_guard<std::mutex> lockFile(fileNode->Security);
+
+  if (fileNode->Security.DescriptorSize > BufferLength) {
+    *LengthNeeded = fileNode->Security.DescriptorSize;
+    return STATUS_BUFFER_OVERFLOW;
+  }
+
+  if (fileNode->Security.Descriptor) {
+    memcpy(SecurityDescriptor, fileNode->Security.Descriptor,
+           fileNode->Security.DescriptorSize);
+    *LengthNeeded = fileNode->Security.DescriptorSize;
+  }
+
+  return STATUS_SUCCESS;
 }
 
 NTSTATUS SetFileSecurity(LPCWSTR FileName,

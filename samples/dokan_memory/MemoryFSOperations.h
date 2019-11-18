@@ -1,9 +1,12 @@
 #pragma once
 
+#include <dokan/dokan.h>
+
 extern DOKAN_OPERATIONS MemoryFSOperations;
 
-#define fs_instance                                                            \
-  reinterpret_cast<MemoryFSFileNodes *>(DokanFileInfo->DokanOptions->GlobalContext)
+#define fs_instance                     \
+  reinterpret_cast<MemoryFSFileNodes*>( \
+      DokanFileInfo->DokanOptions->GlobalContext)
 
 NTSTATUS ZwCreateFile(LPCWSTR FileName,
                       PDOKAN_IO_SECURITY_CONTEXT SecurityContext,
@@ -38,9 +41,9 @@ NTSTATUS FindFilesWithPattern(LPCWSTR PathName, LPCWSTR SearchPattern,
 NTSTATUS SetFileAttributes(LPCWSTR FileName, DWORD FileAttributes,
                            PDOKAN_FILE_INFO DokanFileInfo);
 
-NTSTATUS SetFileTime(LPCWSTR FileName, CONST FILETIME *CreationTime,
-                     CONST FILETIME *LastAccessTime,
-                     CONST FILETIME *LastWriteTime,
+NTSTATUS SetFileTime(LPCWSTR FileName, CONST FILETIME* CreationTime,
+                     CONST FILETIME* LastAccessTime,
+                     CONST FILETIME* LastWriteTime,
                      PDOKAN_FILE_INFO DokanFileInfo);
 
 NTSTATUS DeleteFile(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo);
