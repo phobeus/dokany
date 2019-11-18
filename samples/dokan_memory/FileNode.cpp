@@ -30,6 +30,23 @@ FileNode::FileNode(std::wstring fileName, bool isDirectory,
   }
 }
 
+DWORD FileNode::Read(LPVOID Buffer, DWORD BufferLength, LONGLONG Offset) {
+  std::lock_guard<std::mutex> lock(_data_mutex);
+  if (static_cast<size_t>(Offset + BufferLength) > _data.size())
+    BufferLength = static_cast<DWORD>(_data.size() - Offset);
+  memcpy(Buffer, &_data[Offset], BufferLength);
+  return BufferLength;
+}
+
+DWORD FileNode::Write(LPCVOID Buffer, DWORD NumberOfBytesToWrite,
+                      LONGLONG Offset) {
+  std::lock_guard<std::mutex> lock(_data_mutex);
+  if (static_cast<size_t>(Offset + NumberOfBytesToWrite) > _data.size())
+    _data.resize(Offset + NumberOfBytesToWrite);
+  memcpy(&_data[Offset], Buffer, NumberOfBytesToWrite);
+  return NumberOfBytesToWrite;
+}
+
 const size_t FileNode::getFileSize() {
   std::lock_guard<std::mutex> lock(_data_mutex);
   return _data.size();

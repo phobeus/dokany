@@ -186,20 +186,36 @@ void CloseFile(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
 NTSTATUS ReadFile(LPCWSTR FileName, LPVOID Buffer, DWORD BufferLength,
                   LPDWORD ReadLength, LONGLONG Offset,
                   PDOKAN_FILE_INFO DokanFileInfo) {
-  // TODO
-  return STATUS_ACCESS_DENIED;
+  auto fileNodes = fs_instance;
+  auto fileNameStr = std::wstring(FileName);
+  std::wcout << "ReadFile: " << fileNameStr << std::endl;
+  auto fileNode = fileNodes->Find(fileNameStr);
+  if (!fileNode) return STATUS_OBJECT_NAME_NOT_FOUND;
+
+  *ReadLength = fileNode->Read(Buffer, BufferLength, Offset);
+
+  return STATUS_SUCCESS;
 }
 
 NTSTATUS WriteFile(LPCWSTR FileName, LPCVOID Buffer, DWORD NumberOfBytesToWrite,
                    LPDWORD NumberOfBytesWritten, LONGLONG Offset,
                    PDOKAN_FILE_INFO DokanFileInfo) {
-  // TODO
-  return STATUS_ACCESS_DENIED;
+  auto fileNodes = fs_instance;
+  auto fileNameStr = std::wstring(FileName);
+  std::wcout << "WriteFile: " << fileNameStr << std::endl;
+  auto fileNode = fileNodes->Find(fileNameStr);
+  if (!fileNode) return STATUS_OBJECT_NAME_NOT_FOUND;
+
+  *NumberOfBytesWritten = fileNode->Write(Buffer, NumberOfBytesToWrite, Offset);
+
+  return STATUS_SUCCESS;
 }
 
 NTSTATUS FlushFileBuffers(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
-  // TODO
-  return STATUS_ACCESS_DENIED;
+  auto fileNodes = fs_instance;
+  auto fileNameStr = std::wstring(FileName);
+  std::wcout << "FlushFileBuffers: " << fileNameStr << std::endl;
+  return STATUS_SUCCESS;
 }
 
 NTSTATUS GetFileInformation(LPCWSTR FileName,
@@ -207,6 +223,7 @@ NTSTATUS GetFileInformation(LPCWSTR FileName,
                             PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
+  std::wcout << "GetFileInformation: " << fileNameStr << std::endl;
   auto fileNode = fileNodes->Find(fileNameStr);
   if (!fileNode) return STATUS_OBJECT_NAME_NOT_FOUND;
   Buffer->dwFileAttributes = fileNode->Attributes;
@@ -218,7 +235,7 @@ NTSTATUS GetFileInformation(LPCWSTR FileName,
   Buffer->nFileSizeLow = strLength & 0xffffffff;
 
   // Improve this
-  Buffer->nFileIndexHigh = Buffer->nFileIndexLow = 0;
+  Buffer->nFileIndexHigh = Buffer->nFileIndexLow = 0; //TODO have FileNodes assign one
   Buffer->nNumberOfLinks = 0;
   // Buffer->dwVolumeSerialNumber;
   return STATUS_SUCCESS;

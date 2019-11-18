@@ -45,6 +45,9 @@ class FileNode {
 
   // Data
   // Object lock not needed
+  DWORD Read(LPVOID Buffer, DWORD BufferLength, LONGLONG Offset);
+  DWORD Write(LPCVOID Buffer, DWORD NumberOfBytesToWrite, LONGLONG Offset);
+
   const size_t getFileSize();
   void setEndOfFile(const LONGLONG& byteOffset);
 
