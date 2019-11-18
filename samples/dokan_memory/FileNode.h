@@ -36,53 +36,22 @@ struct FileTimes {
 
 class FileNode {
  public:
-  FileNode(std::wstring fileName, bool isDirectory)
-      : FileNode(
-            fileName, isDirectory,
-            isDirectory ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_ARCHIVE,
-            nullptr) {}
+  FileNode(std::wstring fileName, bool isDirectory);
 
   FileNode(std::wstring fileName, bool isDirectory, DWORD fileAttr,
-           PDOKAN_IO_SECURITY_CONTEXT SecurityContext)
-      : _fileName(fileName), IsDirectory(isDirectory), Attributes(fileAttr) {
-    Times.Reset();
-    // FilePath = std::filesystem::path(FileName);
-
-    if (SecurityContext && SecurityContext->AccessState.SecurityDescriptor) {
-      // Set security information
-      // No lock need, FileNode is still not in directory
-      Security.DescriptorSize = GetSecurityDescriptorLength(
-          SecurityContext->AccessState.SecurityDescriptor);
-      Security.Descriptor = new byte[Security.DescriptorSize];
-      memcpy(Security.Descriptor,
-             SecurityContext->AccessState.SecurityDescriptor,
-             Security.DescriptorSize);
-    }
-  }
+           PDOKAN_IO_SECURITY_CONTEXT SecurityContext);
 
   FileNode(const FileNode& f) = delete;
 
   // Data
   // Object lock not needed
-  const size_t getFileSize() {
-    std::lock_guard<std::mutex> lock(_data_mutex);
-    return _data.size();
-  }
-  void setEndOfFile(const LONGLONG& byteOffset) {
-    std::lock_guard<std::mutex> lock(_data_mutex);
-    _data.resize(byteOffset);
-  }
+  const size_t getFileSize();
+  void setEndOfFile(const LONGLONG& byteOffset);
 
   // Informations
   // FileName can change during move
-  const std::wstring getFileName() {
-    std::lock_guard<std::mutex> lock(_fileName_mutex);
-    return _fileName;
-  }
-  void setFileName(const std::wstring& f) {
-    std::lock_guard<std::mutex> lock(_fileName_mutex);
-    _fileName = f;
-  }
+  const std::wstring getFileName();
+  void setFileName(const std::wstring& f);
 
   // No lock needed above
   std::atomic<bool> IsDirectory = false;

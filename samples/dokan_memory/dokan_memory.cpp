@@ -2,5 +2,5 @@
 
 int main() {
   auto dokanMemoryFs = std::make_shared<DokanMemoryFS>();
-  dokanMemoryFs->run();
+  dokanMemoryFs->Run();
 }
