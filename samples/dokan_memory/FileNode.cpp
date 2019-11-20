@@ -34,12 +34,15 @@ DWORD FileNode::Read(LPVOID Buffer, DWORD BufferLength, LONGLONG Offset) {
   std::lock_guard<std::mutex> lock(_data_mutex);
   if (static_cast<size_t>(Offset + BufferLength) > _data.size())
     BufferLength = static_cast<DWORD>(_data.size() - Offset);
-  memcpy(Buffer, &_data[Offset], BufferLength);
+  if (BufferLength)
+    memcpy(Buffer, &_data[Offset], BufferLength);
   return BufferLength;
 }
 
 DWORD FileNode::Write(LPCVOID Buffer, DWORD NumberOfBytesToWrite,
                       LONGLONG Offset) {
+  if (!NumberOfBytesToWrite) return 0;
+
   std::lock_guard<std::mutex> lock(_data_mutex);
   if (static_cast<size_t>(Offset + NumberOfBytesToWrite) > _data.size())
     _data.resize(Offset + NumberOfBytesToWrite);

@@ -37,7 +37,7 @@ void DokanMemoryFS::Run() {
       throw std::runtime_error("Version error");
       break;
     default:
-      throw std::runtime_error("Unknown error");  // add error
+      throw std::runtime_error("Unknown error");  // add error status
       break;
   }
 }

@@ -27,6 +27,8 @@ class MemoryFSFileNodes {
                 BOOL replaceIfExisting);
 
  private:
+  LONGLONG _FSFileIndexCount = 0;
+
   std::recursive_mutex _filesNodes_mutex;
   std::unordered_map<std::wstring, std::shared_ptr<FileNode>> _fileNodes;
   std::unordered_map<std::wstring, std::set<std::shared_ptr<FileNode>>>

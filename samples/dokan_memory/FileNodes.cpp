@@ -13,6 +13,7 @@ NTSTATUS MemoryFSFileNodes::Add(
     const std::shared_ptr<FileNode>& fileNode) {
   std::lock_guard<std::recursive_mutex> lock(_filesNodes_mutex);
 
+  fileNode->FileIndex = _FSFileIndexCount++;
   const auto fileName = fileNode->getFileName();
   const auto parent_path = std::filesystem::path(fileName).parent_path();
   if (!_directoryPaths.count(parent_path)) {

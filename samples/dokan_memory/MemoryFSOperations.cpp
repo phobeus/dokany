@@ -193,7 +193,8 @@ NTSTATUS ReadFile(LPCWSTR FileName, LPVOID Buffer, DWORD BufferLength,
   if (!fileNode) return STATUS_OBJECT_NAME_NOT_FOUND;
 
   *ReadLength = fileNode->Read(Buffer, BufferLength, Offset);
-
+  std::wcout << "\t BufferLength: " << BufferLength << " Offset: " << Offset
+             << " ReadLength: " << *ReadLength << std::endl;
   return STATUS_SUCCESS;
 }
 
@@ -206,8 +207,32 @@ NTSTATUS WriteFile(LPCWSTR FileName, LPCVOID Buffer, DWORD NumberOfBytesToWrite,
   auto fileNode = fileNodes->Find(fileNameStr);
   if (!fileNode) return STATUS_OBJECT_NAME_NOT_FOUND;
 
-  *NumberOfBytesWritten = fileNode->Write(Buffer, NumberOfBytesToWrite, Offset);
+  auto fileSize = fileNode->getFileSize();
 
+  if (DokanFileInfo->PagingIo) {
+    if (static_cast<size_t>(Offset) >= fileSize) {
+      std::wcout << "\t PagingIo Outside Offset " << Offset
+                 << " fileSize: " << fileSize << std::endl;
+      *NumberOfBytesWritten = 0;
+      return STATUS_SUCCESS;
+    }
+
+    if (((size_t)Offset + NumberOfBytesToWrite) > fileSize) {
+      size_t bytes = fileSize - Offset;
+      if (bytes >> 32) {
+        NumberOfBytesToWrite = (DWORD)(bytes & 0xFFFFFFFFUL);
+      } else {
+        NumberOfBytesToWrite = (DWORD)bytes;
+      }
+    }
+    std::wcout << "\t PagingIo NumberOfBytesToWrite: " << NumberOfBytesToWrite
+               << std::endl;
+  }
+
+  *NumberOfBytesWritten = fileNode->Write(Buffer, NumberOfBytesToWrite, Offset);
+  std::wcout << "\t NumberOfBytesToWrite: " << NumberOfBytesToWrite
+             << " Offset: " << Offset
+             << " NumberOfBytesWritten: " << *NumberOfBytesWritten << std::endl;
   return STATUS_SUCCESS;
 }
 
@@ -232,10 +257,14 @@ NTSTATUS GetFileInformation(LPCWSTR FileName,
   Buffer->ftLastWriteTime = fileNode->Times.LastWrite;
   auto strLength = fileNode->getFileSize();
   Buffer->nFileSizeHigh = strLength >> 32;
-  Buffer->nFileSizeLow = strLength & 0xffffffff;
+  Buffer->nFileSizeLow = (DWORD)strLength;
+  std::wcout << "\tstrLength " << strLength
+             << " FileSize: " << Buffer->nFileSizeHigh << Buffer->nFileSizeLow
+             << std::endl;
+  Buffer->nFileIndexHigh = fileNode->FileIndex >> 32;
+  Buffer->nFileIndexLow = fileNode->FileIndex & 0xffffffff;
 
   // Improve this
-  Buffer->nFileIndexHigh = Buffer->nFileIndexLow = 0; //TODO have FileNodes assign one
   Buffer->nNumberOfLinks = 0;
   // Buffer->dwVolumeSerialNumber;
   return STATUS_SUCCESS;
@@ -262,7 +291,10 @@ NTSTATUS FindFiles(LPCWSTR FileName, PFillFindData FillFindData,
     findData.ftLastWriteTime = fileNode->Times.LastWrite;
     auto strLength = fileNode->getFileSize();
     findData.nFileSizeHigh = strLength >> 32;
-    findData.nFileSizeLow = strLength & 0xffffffff;
+    findData.nFileSizeLow = (DWORD)strLength;
+    std::wcout << "\tstrLength " << strLength
+               << " FileSize: " << findData.nFileSizeHigh
+               << findData.nFileSizeLow << std::endl;
     FillFindData(&findData, DokanFileInfo);
   }
   return STATUS_SUCCESS;
@@ -348,7 +380,8 @@ NTSTATUS SetEndOfFile(LPCWSTR FileName, LONGLONG ByteOffset,
                       PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
-  std::wcout << "SetEndOfFile: " << fileNameStr << std::endl;
+  std::wcout << "SetEndOfFile: " << fileNameStr << " ByteOffset: " << ByteOffset
+             << std::endl;
   auto fileNode = fileNodes->Find(fileNameStr);
 
   if (!fileNode) return STATUS_OBJECT_NAME_NOT_FOUND;
@@ -360,7 +393,8 @@ NTSTATUS SetAllocationSize(LPCWSTR FileName, LONGLONG AllocSize,
                            PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
-  std::wcout << "SetAllocationSize: " << fileNameStr << std::endl;
+  std::wcout << "SetAllocationSize: " << fileNameStr
+             << " AllocSize: " << AllocSize << std::endl;
   auto fileNode = fileNodes->Find(fileNameStr);
 
   if (!fileNode) return STATUS_OBJECT_NAME_NOT_FOUND;

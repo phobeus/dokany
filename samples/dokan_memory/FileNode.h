@@ -59,6 +59,7 @@ class FileNode {
   // No lock needed above
   std::atomic<bool> IsDirectory = false;
   std::atomic<DWORD> Attributes = 0;
+  LONGLONG FileIndex = 0;
 
   FileTimes Times;
   SecurityInformations Security;
@@ -68,7 +69,7 @@ class FileNode {
 
   std::mutex _data_mutex;
   // _data_mutex need to locked for read / write
-  std::vector<WCHAR> _data;
+  std::vector<uint8_t> _data;
 
   std::mutex _fileName_mutex;
   std::wstring _fileName;
