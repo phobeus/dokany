@@ -20,13 +20,16 @@ class MemoryFSFileNodes {
 
   void Remove(const std::wstring& fileName);
   void Remove(const std::shared_ptr<FileNode>& fileNode);
+  void Remove(const std::wstring& fileName,
+              const std::shared_ptr<FileNode>& fileNode);
 
   NTSTATUS Move(std::wstring oldFilename, std::wstring newFileName,
                 BOOL replaceIfExisting);
 
  private:
-  LONGLONG _FSFileIndexCount = 0;
+  std::atomic<LONGLONG> _FSFileIndexCount = 1;
 
+  // Mutex need to be aquired when using fileNodes / directoryPaths
   std::recursive_mutex _filesNodes_mutex;
   std::unordered_map<std::wstring, std::shared_ptr<FileNode>> _fileNodes;
   std::unordered_map<std::wstring, std::set<std::shared_ptr<FileNode>>>
