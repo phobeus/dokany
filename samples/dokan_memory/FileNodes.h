@@ -12,8 +12,6 @@ class MemoryFSFileNodes {
  public:
   MemoryFSFileNodes();
 
-  // No need to lock fileNode as it is a new element and not present in
-  // fileNodes
   NTSTATUS Add(const std::shared_ptr<FileNode>& fileNode);
 
   std::shared_ptr<FileNode> Find(const std::wstring& fileName);

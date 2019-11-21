@@ -7,38 +7,11 @@
 #include <sstream>
 #include <unordered_map>
 
-DOKAN_OPERATIONS MemoryFSOperations = {
-    ZwCreateFile,
-    Cleanup,
-    CloseFile,
-    ReadFile,
-    WriteFile,
-    FlushFileBuffers,
-    GetFileInformation,
-    FindFiles,
-    nullptr,  // FindFilesWithPattern
-    SetFileAttributes,
-    SetFileTime,
-    DeleteFile,
-    DeleteDirectory,
-    MoveFile,
-    SetEndOfFile,
-    SetAllocationSize,
-    LockFile,
-    UnlockFile,
-    GetDiskFreeSpace,
-    GetVolumeInformation,
-    Mounted,
-    Unmounted,
-    GetFileSecurity,  // GetFileSecurity
-    nullptr,          // SetFileSecurity
-};
-
-NTSTATUS ZwCreateFile(LPCWSTR FileName,
-                      PDOKAN_IO_SECURITY_CONTEXT SecurityContext,
-                      ACCESS_MASK DesiredAccess, ULONG FileAttributes,
-                      ULONG ShareAccess, ULONG CreateDisposition,
-                      ULONG CreateOptions, PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK
+ZwCreateFile(LPCWSTR FileName, PDOKAN_IO_SECURITY_CONTEXT SecurityContext,
+             ACCESS_MASK DesiredAccess, ULONG FileAttributes, ULONG ShareAccess,
+             ULONG CreateDisposition, ULONG CreateOptions,
+             PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   ACCESS_MASK genericDesiredAccess;
   DWORD creationDisposition;
@@ -167,7 +140,8 @@ NTSTATUS ZwCreateFile(LPCWSTR FileName,
   return STATUS_SUCCESS;
 }
 
-void Cleanup(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
+static void DOKAN_CALLBACK Cleanup(LPCWSTR FileName,
+                                   PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   std::wcout << "Cleanup: " << fileNameStr << std::endl;
@@ -177,15 +151,17 @@ void Cleanup(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
   }
 }
 
-void CloseFile(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
+static void DOKAN_CALLBACK CloseFile(LPCWSTR FileName,
+                                     PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   std::wcout << "CloseFile: " << fileNameStr << std::endl;
 }
 
-NTSTATUS ReadFile(LPCWSTR FileName, LPVOID Buffer, DWORD BufferLength,
-                  LPDWORD ReadLength, LONGLONG Offset,
-                  PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK ReadFile(LPCWSTR FileName, LPVOID Buffer,
+                                        DWORD BufferLength, LPDWORD ReadLength,
+                                        LONGLONG Offset,
+                                        PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   std::wcout << "ReadFile: " << fileNameStr << std::endl;
@@ -198,9 +174,11 @@ NTSTATUS ReadFile(LPCWSTR FileName, LPVOID Buffer, DWORD BufferLength,
   return STATUS_SUCCESS;
 }
 
-NTSTATUS WriteFile(LPCWSTR FileName, LPCVOID Buffer, DWORD NumberOfBytesToWrite,
-                   LPDWORD NumberOfBytesWritten, LONGLONG Offset,
-                   PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK WriteFile(LPCWSTR FileName, LPCVOID Buffer,
+                                         DWORD NumberOfBytesToWrite,
+                                         LPDWORD NumberOfBytesWritten,
+                                         LONGLONG Offset,
+                                         PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   std::wcout << "WriteFile: " << fileNameStr << std::endl;
@@ -210,19 +188,19 @@ NTSTATUS WriteFile(LPCWSTR FileName, LPCVOID Buffer, DWORD NumberOfBytesToWrite,
   auto fileSize = fileNode->getFileSize();
 
   if (DokanFileInfo->PagingIo) {
-    if (static_cast<size_t>(Offset) >= fileSize) {
+    if (Offset >= fileSize) {
       std::wcout << "\t PagingIo Outside Offset " << Offset
                  << " fileSize: " << fileSize << std::endl;
       *NumberOfBytesWritten = 0;
       return STATUS_SUCCESS;
     }
 
-    if (((size_t)Offset + NumberOfBytesToWrite) > fileSize) {
-      size_t bytes = fileSize - Offset;
+    if ((Offset + NumberOfBytesToWrite) > fileSize) {
+      LONGLONG bytes = fileSize - Offset;
       if (bytes >> 32) {
-        NumberOfBytesToWrite = (DWORD)(bytes & 0xFFFFFFFFUL);
+        NumberOfBytesToWrite = static_cast<DWORD>(bytes & 0xFFFFFFFFUL);
       } else {
-        NumberOfBytesToWrite = (DWORD)bytes;
+        NumberOfBytesToWrite = static_cast<DWORD>(bytes);
       }
     }
     std::wcout << "\t PagingIo NumberOfBytesToWrite: " << NumberOfBytesToWrite
@@ -236,16 +214,17 @@ NTSTATUS WriteFile(LPCWSTR FileName, LPCVOID Buffer, DWORD NumberOfBytesToWrite,
   return STATUS_SUCCESS;
 }
 
-NTSTATUS FlushFileBuffers(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK
+FlushFileBuffers(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   std::wcout << "FlushFileBuffers: " << fileNameStr << std::endl;
   return STATUS_SUCCESS;
 }
 
-NTSTATUS GetFileInformation(LPCWSTR FileName,
-                            LPBY_HANDLE_FILE_INFORMATION Buffer,
-                            PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK
+GetFileInformation(LPCWSTR FileName, LPBY_HANDLE_FILE_INFORMATION Buffer,
+                   PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   std::wcout << "GetFileInformation: " << fileNameStr << std::endl;
@@ -257,7 +236,7 @@ NTSTATUS GetFileInformation(LPCWSTR FileName,
   Buffer->ftLastWriteTime = fileNode->Times.LastWrite;
   auto strLength = fileNode->getFileSize();
   Buffer->nFileSizeHigh = strLength >> 32;
-  Buffer->nFileSizeLow = (DWORD)strLength;
+  Buffer->nFileSizeLow = static_cast<DWORD>(strLength);
   std::wcout << "\tstrLength " << strLength
              << " FileSize: " << Buffer->nFileSizeHigh << Buffer->nFileSizeLow
              << std::endl;
@@ -270,8 +249,9 @@ NTSTATUS GetFileInformation(LPCWSTR FileName,
   return STATUS_SUCCESS;
 }
 
-NTSTATUS FindFiles(LPCWSTR FileName, PFillFindData FillFindData,
-                   PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK FindFiles(LPCWSTR FileName,
+                                         PFillFindData FillFindData,
+                                         PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   auto files = fileNodes->ListFolder(fileNameStr);
@@ -291,7 +271,7 @@ NTSTATUS FindFiles(LPCWSTR FileName, PFillFindData FillFindData,
     findData.ftLastWriteTime = fileNode->Times.LastWrite;
     auto strLength = fileNode->getFileSize();
     findData.nFileSizeHigh = strLength >> 32;
-    findData.nFileSizeLow = (DWORD)strLength;
+    findData.nFileSizeLow = static_cast<DWORD>(strLength);
     std::wcout << "\tstrLength " << strLength
                << " FileSize: " << findData.nFileSizeHigh
                << findData.nFileSizeLow << std::endl;
@@ -300,14 +280,14 @@ NTSTATUS FindFiles(LPCWSTR FileName, PFillFindData FillFindData,
   return STATUS_SUCCESS;
 }
 
-NTSTATUS FindFilesWithPattern(LPCWSTR PathName, LPCWSTR SearchPattern,
-                              PFillFindData FillFindData,
-                              PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK FindFilesWithPattern(
+    LPCWSTR PathName, LPCWSTR SearchPattern, PFillFindData FillFindData,
+    PDOKAN_FILE_INFO DokanFileInfo) {
   return STATUS_NOT_IMPLEMENTED;
 }
 
-NTSTATUS SetFileAttributes(LPCWSTR FileName, DWORD FileAttributes,
-                           PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK SetFileAttributes(
+    LPCWSTR FileName, DWORD FileAttributes, PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   auto fileNode = fileNodes->Find(fileNameStr);
@@ -324,10 +304,11 @@ NTSTATUS SetFileAttributes(LPCWSTR FileName, DWORD FileAttributes,
   return STATUS_SUCCESS;
 }
 
-NTSTATUS SetFileTime(LPCWSTR FileName, CONST FILETIME* CreationTime,
-                     CONST FILETIME* LastAccessTime,
-                     CONST FILETIME* LastWriteTime,
-                     PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK SetFileTime(LPCWSTR FileName,
+                                           CONST FILETIME* CreationTime,
+                                           CONST FILETIME* LastAccessTime,
+                                           CONST FILETIME* LastWriteTime,
+                                           PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   auto fileNode = fileNodes->Find(fileNameStr);
@@ -342,7 +323,8 @@ NTSTATUS SetFileTime(LPCWSTR FileName, CONST FILETIME* CreationTime,
   return STATUS_SUCCESS;
 }
 
-NTSTATUS DeleteFile(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK DeleteFile(LPCWSTR FileName,
+                                          PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   auto fileNode = fileNodes->Find(fileNameStr);
@@ -355,7 +337,8 @@ NTSTATUS DeleteFile(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
   return STATUS_SUCCESS;
 }
 
-NTSTATUS DeleteDirectory(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK DeleteDirectory(LPCWSTR FileName,
+                                               PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   std::wcout << "DeleteDirectory: " << fileNameStr << std::endl;
@@ -366,8 +349,9 @@ NTSTATUS DeleteDirectory(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
   return STATUS_SUCCESS;
 }
 
-NTSTATUS MoveFile(LPCWSTR FileName, LPCWSTR NewFileName, BOOL ReplaceIfExisting,
-                  PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK MoveFile(LPCWSTR FileName, LPCWSTR NewFileName,
+                                        BOOL ReplaceIfExisting,
+                                        PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   auto newFileNameStr = std::wstring(NewFileName);
@@ -376,8 +360,9 @@ NTSTATUS MoveFile(LPCWSTR FileName, LPCWSTR NewFileName, BOOL ReplaceIfExisting,
   return fileNodes->Move(fileNameStr, newFileNameStr, ReplaceIfExisting);
 }
 
-NTSTATUS SetEndOfFile(LPCWSTR FileName, LONGLONG ByteOffset,
-                      PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK SetEndOfFile(LPCWSTR FileName,
+                                            LONGLONG ByteOffset,
+                                            PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   std::wcout << "SetEndOfFile: " << fileNameStr << " ByteOffset: " << ByteOffset
@@ -389,8 +374,8 @@ NTSTATUS SetEndOfFile(LPCWSTR FileName, LONGLONG ByteOffset,
   return STATUS_SUCCESS;
 }
 
-NTSTATUS SetAllocationSize(LPCWSTR FileName, LONGLONG AllocSize,
-                           PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK SetAllocationSize(
+    LPCWSTR FileName, LONGLONG AllocSize, PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   std::wcout << "SetAllocationSize: " << fileNameStr
@@ -402,30 +387,31 @@ NTSTATUS SetAllocationSize(LPCWSTR FileName, LONGLONG AllocSize,
   return STATUS_SUCCESS;
 }
 
-NTSTATUS LockFile(LPCWSTR FileName, LONGLONG ByteOffset, LONGLONG Length,
-                  PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK LockFile(LPCWSTR FileName, LONGLONG ByteOffset,
+                                        LONGLONG Length,
+                                        PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   std::wcout << "LockFile: " << fileNameStr << std::endl;
   return STATUS_NOT_IMPLEMENTED;
 }
 
-NTSTATUS UnlockFile(LPCWSTR FileName, LONGLONG ByteOffset, LONGLONG Length,
-                    PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK UnlockFile(LPCWSTR FileName, LONGLONG ByteOffset,
+                                          LONGLONG Length,
+                                          PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   std::wcout << "UnlockFile: " << fileNameStr << std::endl;
   return STATUS_NOT_IMPLEMENTED;
 }
 
-NTSTATUS GetDiskFreeSpace(PULONGLONG FreeBytesAvailable,
-                          PULONGLONG TotalNumberOfBytes,
-                          PULONGLONG TotalNumberOfFreeBytes,
-                          PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK GetDiskFreeSpace(
+    PULONGLONG FreeBytesAvailable, PULONGLONG TotalNumberOfBytes,
+    PULONGLONG TotalNumberOfFreeBytes, PDOKAN_FILE_INFO DokanFileInfo) {
   return STATUS_NOT_IMPLEMENTED;
 }
 
-NTSTATUS
+static NTSTATUS DOKAN_CALLBACK
 GetVolumeInformation(LPWSTR VolumeNameBuffer, DWORD VolumeNameSize,
                      LPDWORD VolumeSerialNumber, LPDWORD MaximumComponentLength,
                      LPDWORD FileSystemFlags, LPWSTR FileSystemNameBuffer,
@@ -433,21 +419,20 @@ GetVolumeInformation(LPWSTR VolumeNameBuffer, DWORD VolumeNameSize,
   return STATUS_NOT_IMPLEMENTED;
 }
 
-NTSTATUS Mounted(PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK Mounted(PDOKAN_FILE_INFO DokanFileInfo) {
   std::cout << "Mounted" << std::endl;
   return STATUS_SUCCESS;
 }
 
-NTSTATUS Unmounted(PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK Unmounted(PDOKAN_FILE_INFO DokanFileInfo) {
   std::cout << "UnMounted" << std::endl;
   return STATUS_SUCCESS;
 }
 
-NTSTATUS GetFileSecurity(LPCWSTR FileName,
-                         PSECURITY_INFORMATION SecurityInformation,
-                         PSECURITY_DESCRIPTOR SecurityDescriptor,
-                         ULONG BufferLength, PULONG LengthNeeded,
-                         PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK
+GetFileSecurity(LPCWSTR FileName, PSECURITY_INFORMATION SecurityInformation,
+                PSECURITY_DESCRIPTOR SecurityDescriptor, ULONG BufferLength,
+                PULONG LengthNeeded, PDOKAN_FILE_INFO DokanFileInfo) {
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   std::wcout << "GetFileSecurity: " << fileNameStr << std::endl;
@@ -471,14 +456,42 @@ NTSTATUS GetFileSecurity(LPCWSTR FileName,
   return STATUS_SUCCESS;
 }
 
-NTSTATUS SetFileSecurity(LPCWSTR FileName,
-                         PSECURITY_INFORMATION SecurityInformation,
-                         PSECURITY_DESCRIPTOR SecurityDescriptor,
-                         ULONG BufferLength, PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK
+SetFileSecurity(LPCWSTR FileName, PSECURITY_INFORMATION SecurityInformation,
+                PSECURITY_DESCRIPTOR SecurityDescriptor, ULONG BufferLength,
+                PDOKAN_FILE_INFO DokanFileInfo) {
   return STATUS_NOT_IMPLEMENTED;
 }
 
-NTSTATUS FindStreams(LPCWSTR FileName, PFillFindStreamData FillFindStreamData,
-                     PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK
+FindStreams(LPCWSTR FileName, PFillFindStreamData FillFindStreamData,
+            PDOKAN_FILE_INFO DokanFileInfo) {
   return STATUS_NOT_IMPLEMENTED;
 }
+
+DOKAN_OPERATIONS MemoryFSOperations = {
+    ZwCreateFile,
+    Cleanup,
+    CloseFile,
+    ReadFile,
+    WriteFile,
+    FlushFileBuffers,
+    GetFileInformation,
+    FindFiles,
+    nullptr,  // FindFilesWithPattern
+    SetFileAttributes,
+    SetFileTime,
+    DeleteFile,
+    DeleteDirectory,
+    MoveFile,
+    SetEndOfFile,
+    SetAllocationSize,
+    LockFile,
+    UnlockFile,
+    GetDiskFreeSpace,
+    GetVolumeInformation,
+    Mounted,
+    Unmounted,
+    GetFileSecurity,  // GetFileSecurity
+    nullptr,          // SetFileSecurity
+};

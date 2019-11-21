@@ -1,10 +1,6 @@
 #include "FileNodes.h"
 
-// No need to lock fileNode as it is a new element and not present in
-// fileNodes
-
 MemoryFSFileNodes::MemoryFSFileNodes() {
-  // Add root
   _fileNodes[L"\\"] = std::make_shared<FileNode>(L"\\", true);
   _directoryPaths.emplace(L"\\", std::set<std::shared_ptr<FileNode>>());
 }

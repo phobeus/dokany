@@ -43,16 +43,13 @@ class FileNode {
 
   FileNode(const FileNode& f) = delete;
 
-  // Data
-  // Object lock not needed
   DWORD Read(LPVOID Buffer, DWORD BufferLength, LONGLONG Offset);
   DWORD Write(LPCVOID Buffer, DWORD NumberOfBytesToWrite, LONGLONG Offset);
 
-  const size_t getFileSize();
+  const LONGLONG getFileSize();
   void setEndOfFile(const LONGLONG& byteOffset);
 
-  // Informations
-  // FileName can change during move
+  // FileName change during move
   const std::wstring getFileName();
   void setFileName(const std::wstring& f);
 
@@ -68,7 +65,7 @@ class FileNode {
   FileNode() = default;
 
   std::mutex _data_mutex;
-  // _data_mutex need to locked for read / write
+  // _data_mutex need to be aquired
   std::vector<uint8_t> _data;
 
   std::mutex _fileName_mutex;
