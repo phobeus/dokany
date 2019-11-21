@@ -20,8 +20,6 @@ class MemoryFSFileNodes {
 
   void Remove(const std::wstring& fileName);
   void Remove(const std::shared_ptr<FileNode>& fileNode);
-  void Remove(const std::wstring& fileName,
-              const std::shared_ptr<FileNode>& fileNode);
 
   NTSTATUS Move(std::wstring oldFilename, std::wstring newFileName,
                 BOOL replaceIfExisting);

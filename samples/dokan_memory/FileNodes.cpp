@@ -5,12 +5,11 @@ MemoryFSFileNodes::MemoryFSFileNodes() {
   _directoryPaths.emplace(L"\\", std::set<std::shared_ptr<FileNode>>());
 }
 
-NTSTATUS MemoryFSFileNodes::Add(
-    const std::shared_ptr<FileNode>& fileNode) {
+NTSTATUS MemoryFSFileNodes::Add(const std::shared_ptr<FileNode>& fileNode) {
   std::lock_guard<std::recursive_mutex> lock(_filesNodes_mutex);
 
-  if (fileNode->FileIndex == 0) // previous init
-	fileNode->FileIndex = _FSFileIndexCount++;
+  if (fileNode->FileIndex == 0)  // previous init
+    fileNode->FileIndex = _FSFileIndexCount++;
   const auto fileName = fileNode->getFileName();
   const auto parent_path = std::filesystem::path(fileName).parent_path();
 
@@ -21,7 +20,7 @@ NTSTATUS MemoryFSFileNodes::Add(
     return STATUS_OBJECT_PATH_NOT_FOUND;
   }
 
-  // If we have a folder, we add it to our directoryPaths 
+  // If we have a folder, we add it to our directoryPaths
   if (fileNode->IsDirectory && !_directoryPaths.count(fileName))
     _directoryPaths.emplace(fileName, std::set<std::shared_ptr<FileNode>>());
 
@@ -51,20 +50,14 @@ std::set<std::shared_ptr<FileNode>> MemoryFSFileNodes::ListFolder(
 }
 
 void MemoryFSFileNodes::Remove(const std::wstring& fileName) {
-  return Remove(fileName, Find(fileName));
+  return Remove(Find(fileName));
 }
 
 void MemoryFSFileNodes::Remove(const std::shared_ptr<FileNode>& fileNode) {
   if (!fileNode) return;
-  return Remove(fileNode->getFileName(), fileNode);
-}
-
-void MemoryFSFileNodes::Remove(
-    const std::wstring& fileName,
-    const std::shared_ptr<FileNode>& fileNode) {
-  if (!fileNode) return;
 
   std::lock_guard<std::recursive_mutex> lock(_filesNodes_mutex);
+  auto fileName = fileNode->getFileName();
 
   // Remove node from fileNodes and directoryPaths
   _fileNodes.erase(fileName);
@@ -83,8 +76,8 @@ void MemoryFSFileNodes::Remove(
 }
 
 NTSTATUS MemoryFSFileNodes::Move(std::wstring oldFilename,
-                                        std::wstring newFileName,
-                                        BOOL replaceIfExisting) {
+                                 std::wstring newFileName,
+                                 BOOL replaceIfExisting) {
   auto fileNode = Find(oldFilename);
   auto newFileNode = Find(newFileName);
 
@@ -133,15 +126,18 @@ NTSTATUS MemoryFSFileNodes::Move(std::wstring oldFilename,
               .append(std::filesystem::path(fileName).filename().wstring())
               .wstring();
       auto n = Move(fileName, newSubFileName, replaceIfExisting);
-      if (n != STATUS_SUCCESS) return n; // That's bad...we have not done a full move
+      if (n != STATUS_SUCCESS)
+        return n;  // That's bad...we have not done a full move
     }
 
     // remove folder from directories
     _directoryPaths.erase(oldFilename);
   }
 
-  // 3 - Remove current not with oldName as key
-  Remove(oldFilename, fileNode);
+  // 3 - Remove fileNode link with oldFilename
+  _fileNodes.erase(oldFilename);
+  if (oldParentPath != newParent_path)  // Same folder destination
+    _directoryPaths[oldParentPath].erase(fileNode);
 
   return STATUS_SUCCESS;
 }
