@@ -1,7 +1,68 @@
 #include "FileNodes.h"
 
+#include <sddl.h>
+#include <spdlog/spdlog.h>
+
 MemoryFSFileNodes::MemoryFSFileNodes() {
-  _fileNodes[L"\\"] = std::make_shared<FileNode>(L"\\", true);
+  WCHAR buffer[1024];
+  WCHAR finalBuffer[2048];
+  PTOKEN_USER userToken = NULL;
+  PTOKEN_GROUPS groupsToken = NULL;
+  HANDLE tokenHandle;
+  LPTSTR userSidString = NULL, groupSidString = NULL;
+
+  if (OpenProcessToken(GetCurrentProcess(), TOKEN_READ, &tokenHandle) ==
+      FALSE) {
+    throw std::runtime_error("Failed init root resources");
+  }
+
+  DWORD returnLength;
+  if (!GetTokenInformation(tokenHandle, TokenUser, buffer, sizeof(buffer),
+                           &returnLength)) {
+    CloseHandle(tokenHandle);
+    throw std::runtime_error("Failed init root resources");
+  }
+
+  userToken = (PTOKEN_USER)buffer;
+  if (!ConvertSidToStringSid(userToken->User.Sid, &userSidString)) {
+    CloseHandle(tokenHandle);
+    throw std::runtime_error("Failed init root resources");
+  }
+
+  if (!GetTokenInformation(tokenHandle, TokenGroups, buffer, sizeof(buffer),
+                           &returnLength)) {
+    CloseHandle(tokenHandle);
+    throw std::runtime_error("Failed init root resources");
+  }
+
+  groupsToken = (PTOKEN_GROUPS)buffer;
+  if (groupsToken->GroupCount > 0) {
+    if (!ConvertSidToStringSid(groupsToken->Groups[0].Sid, &groupSidString)) {
+      CloseHandle(tokenHandle);
+      throw std::runtime_error("Failed init root resources");
+    }
+    swprintf_s(buffer, 1024, L"O:%lsG:%ls", userSidString, groupSidString);
+  } else
+    swprintf_s(buffer, 1024, L"O:%ls", userSidString);
+
+  LocalFree(userSidString);
+  LocalFree(groupSidString);
+  CloseHandle(tokenHandle);
+
+  swprintf_s(finalBuffer, 2048, L"%lsD:PAI(A;OICI;FA;;;AU)", buffer);
+
+  PSECURITY_DESCRIPTOR securityDescriptor = NULL;
+  ULONG Size = 0;
+  if (!ConvertStringSecurityDescriptorToSecurityDescriptor(
+          finalBuffer, SDDL_REVISION_1, &securityDescriptor, &Size))
+    throw std::runtime_error("Failed init root resources");
+
+  auto fileNode = std::make_shared<FileNode>(L"\\", true,
+                                             FILE_ATTRIBUTE_DIRECTORY, nullptr);
+  fileNode->Security.SetDescriptor(securityDescriptor);
+  LocalFree(securityDescriptor);
+
+  _fileNodes[L"\\"] = fileNode;
   _directoryPaths.emplace(L"\\", std::set<std::shared_ptr<FileNode>>());
 }
 
@@ -11,12 +72,13 @@ NTSTATUS MemoryFSFileNodes::Add(const std::shared_ptr<FileNode>& fileNode) {
   if (fileNode->FileIndex == 0)  // previous init
     fileNode->FileIndex = _FSFileIndexCount++;
   const auto fileName = fileNode->getFileName();
-  const auto parent_path = std::filesystem::path(fileName).parent_path();
+  const auto parent_path =
+      std::filesystem::path(fileName).parent_path().wstring();
 
   // Does target folder exist
   if (!_directoryPaths.count(parent_path)) {
-    std::wcout << "Add: No directory: [" << parent_path << "] exist FilePath: ["
-               << fileName << "]" << std::endl;
+    spdlog::warn(L"Add: No directory: {} exist FilePath: {}", parent_path,
+                 fileName);
     return STATUS_OBJECT_PATH_NOT_FOUND;
   }
 
@@ -28,8 +90,7 @@ NTSTATUS MemoryFSFileNodes::Add(const std::shared_ptr<FileNode>& fileNode) {
   _fileNodes[fileName] = fileNode;
   _directoryPaths[parent_path].insert(fileNode);
 
-  std::wcout << "Add file: [" << fileName << "] in folder: [" << parent_path
-             << "]" << std::endl;
+  spdlog::info(L"Add file: {} in folder: {}", fileName, parent_path);
   return STATUS_SUCCESS;
 }
 
@@ -58,6 +119,7 @@ void MemoryFSFileNodes::Remove(const std::shared_ptr<FileNode>& fileNode) {
 
   std::lock_guard<std::recursive_mutex> lock(_filesNodes_mutex);
   auto fileName = fileNode->getFileName();
+  spdlog::info(L"Remove: {}", fileName);
 
   // Remove node from fileNodes and directoryPaths
   _fileNodes.erase(fileName);
@@ -94,12 +156,13 @@ NTSTATUS MemoryFSFileNodes::Move(std::wstring oldFilename,
   if (newFileNode && (fileNode->IsDirectory || newFileNode->IsDirectory))
     return STATUS_ACCESS_DENIED;
 
-  auto newParent_path = std::filesystem::path(newFileName).parent_path();
+  auto newParent_path =
+      std::filesystem::path(newFileName).parent_path().wstring();
 
   std::lock_guard<std::recursive_mutex> lock(_filesNodes_mutex);
   if (!_directoryPaths.count(newParent_path)) {
-    std::wcout << "Move: No directory: [" << newParent_path
-               << "] exist FilePath: [" << newFileName << "]" << std::endl;
+    spdlog::warn(L"Move: No directory: {} exist FilePath: {}", newParent_path,
+                 newFileName);
     return STATUS_OBJECT_PATH_NOT_FOUND;
   }
 
@@ -126,8 +189,13 @@ NTSTATUS MemoryFSFileNodes::Move(std::wstring oldFilename,
               .append(std::filesystem::path(fileName).filename().wstring())
               .wstring();
       auto n = Move(fileName, newSubFileName, replaceIfExisting);
-      if (n != STATUS_SUCCESS)
+      if (n != STATUS_SUCCESS) {
+        spdlog::warn(
+            L"Move: Subfolder file move {} to {} replaceIfExisting {} failed: "
+            L"{}",
+            fileName, newSubFileName, replaceIfExisting, n);
         return n;  // That's bad...we have not done a full move
+      }
     }
 
     // remove folder from directories
@@ -139,5 +207,6 @@ NTSTATUS MemoryFSFileNodes::Move(std::wstring oldFilename,
   if (oldParentPath != newParent_path)  // Same folder destination
     _directoryPaths[oldParentPath].erase(fileNode);
 
+  spdlog::info(L"Move file: {} to folder: {}", oldFilename, newFileName);
   return STATUS_SUCCESS;
 }

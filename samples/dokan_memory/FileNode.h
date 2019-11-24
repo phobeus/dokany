@@ -1,6 +1,9 @@
 #pragma once
+
 #include <dokan/dokan.h>
 #include <dokan/fileinfo.h>
+
+#include "MemoryFSHelper.h"
 
 #include <winbase.h>
 #include <atomic>
@@ -16,28 +19,35 @@ struct SecurityInformations : std::mutex {
   ~SecurityInformations() {
     if (Descriptor) delete[] Descriptor;
   }
+
+  void SetDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor) {
+    if (Descriptor) delete[] Descriptor;
+    if (!SecurityDescriptor) return;
+    DescriptorSize = GetSecurityDescriptorLength(SecurityDescriptor);
+    Descriptor = new byte[DescriptorSize];
+    memcpy(Descriptor, SecurityDescriptor, DescriptorSize);
+  }
 };
 
 struct FileTimes {
   void Reset() {
     FILETIME t;
     GetSystemTimeAsFileTime(&t);
-    LastAccess = LastWrite = Creation = t;
+    LastAccess = LastWrite = Creation =
+        MemoryFSHelper::DDwLowHighToLlong(t.dwLowDateTime, t.dwHighDateTime);
   }
 
   static bool isEmpty(CONST FILETIME* fileTime) {
     return fileTime->dwHighDateTime == 0 && fileTime->dwLowDateTime == 0;
   }
 
-  std::atomic<FILETIME> Creation;
-  std::atomic<FILETIME> LastAccess;
-  std::atomic<FILETIME> LastWrite;
+  std::atomic<LONGLONG> Creation;
+  std::atomic<LONGLONG> LastAccess;
+  std::atomic<LONGLONG> LastWrite;
 };
 
 class FileNode {
  public:
-  FileNode(std::wstring fileName, bool isDirectory);
-
   FileNode(std::wstring fileName, bool isDirectory, DWORD fileAttr,
            PDOKAN_IO_SECURITY_CONTEXT SecurityContext);
 

@@ -7,7 +7,8 @@ void DokanMemoryFS::Run() {
   ZeroMemory(&dokanOptions, sizeof(DOKAN_OPTIONS));
   dokanOptions.Version = DOKAN_VERSION;
   dokanOptions.ThreadCount = 1;
-  dokanOptions.Options = DOKAN_OPTION_STDERR | DOKAN_OPTION_DEBUG;
+  dokanOptions.Options =
+      DOKAN_OPTION_STDERR | DOKAN_OPTION_DEBUG | DOKAN_OPTION_MOUNT_MANAGER;
   dokanOptions.MountPoint = L"M";
   dokanOptions.GlobalContext = reinterpret_cast<ULONG64>(FileNodes.get());
 

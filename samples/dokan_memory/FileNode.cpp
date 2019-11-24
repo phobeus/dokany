@@ -1,9 +1,5 @@
 #include "FileNode.h"
-
-FileNode::FileNode(std::wstring fileName, bool isDirectory)
-    : FileNode(fileName, isDirectory,
-               isDirectory ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_ARCHIVE,
-               nullptr) {}
+#include <spdlog/spdlog.h>
 
 FileNode::FileNode(std::wstring fileName, bool isDirectory, DWORD fileAttr,
                    PDOKAN_IO_SECURITY_CONTEXT SecurityContext)
@@ -12,11 +8,8 @@ FileNode::FileNode(std::wstring fileName, bool isDirectory, DWORD fileAttr,
   Times.Reset();
 
   if (SecurityContext && SecurityContext->AccessState.SecurityDescriptor) {
-    Security.DescriptorSize = GetSecurityDescriptorLength(
-        SecurityContext->AccessState.SecurityDescriptor);
-    Security.Descriptor = new byte[Security.DescriptorSize];
-    memcpy(Security.Descriptor, SecurityContext->AccessState.SecurityDescriptor,
-           Security.DescriptorSize);
+    spdlog::info(L"{} : Attach SecurityDescriptor", fileName);
+    Security.SetDescriptor(SecurityContext->AccessState.SecurityDescriptor);
   }
 }
 
@@ -26,6 +19,8 @@ DWORD FileNode::Read(LPVOID Buffer, DWORD BufferLength, LONGLONG Offset) {
     BufferLength = static_cast<DWORD>(_data.size() - Offset);
   if (BufferLength)
     memcpy(Buffer, &_data[static_cast<size_t>(Offset)], BufferLength);
+  spdlog::info(L"Read {} : BufferLength {} Offset {}", getFileName(),
+               BufferLength, Offset);
   return BufferLength;
 }
 
@@ -36,6 +31,9 @@ DWORD FileNode::Write(LPCVOID Buffer, DWORD NumberOfBytesToWrite,
   std::lock_guard<std::mutex> lock(_data_mutex);
   if (static_cast<size_t>(Offset + NumberOfBytesToWrite) > _data.size())
     _data.resize(static_cast<size_t>(Offset + NumberOfBytesToWrite));
+
+  spdlog::info(L"Write {} : NumberOfBytesToWrite {} Offset {}", getFileName(),
+               NumberOfBytesToWrite, Offset);
   memcpy(&_data[static_cast<size_t>(Offset)], Buffer, NumberOfBytesToWrite);
   return NumberOfBytesToWrite;
 }
