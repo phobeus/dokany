@@ -119,6 +119,7 @@
           Exec-External {& 7z x -y "$doxygen_zip"}
           cd $env:APPVEYOR_BUILD_FOLDER
         }
+    - ps: git submodule update --init --recursive
     - ps: |
         if ($env:CONFIGURATION -eq "All") {
           function downloadIfOlderThanDays($url, $path, $days) {
