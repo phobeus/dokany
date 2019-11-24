@@ -244,6 +244,15 @@ GetFileInformation(LPCWSTR FileName, LPBY_HANDLE_FILE_INFORMATION Buffer,
                                    Buffer->nFileIndexHigh);
   Buffer->nNumberOfLinks = 1;
   Buffer->dwVolumeSerialNumber = 0x19831116;
+
+  spdlog::info(
+      L"GetFileInformation: {} Attributes: {} Times: Creation {} "
+      L"LastAccess {} LastWrite {} FileSize {} NumberOfLinks {} "
+      L"VolumeSerialNumber {}",
+      fileNameStr, fileNode->Attributes, fileNode->Times.Creation,
+      fileNode->Times.LastAccess, fileNode->Times.LastWrite, strLength,
+      Buffer->nNumberOfLinks, Buffer->dwVolumeSerialNumber);
+
   return STATUS_SUCCESS;
 }
 
@@ -272,12 +281,12 @@ static NTSTATUS DOKAN_CALLBACK FindFiles(LPCWSTR FileName,
     auto strLength = fileNode->getFileSize();
     MemoryFSHelper::LlongToDwLowHigh(strLength, findData.nFileSizeLow,
                                      findData.nFileSizeHigh);
-    /* spdlog::info(
-         L"FindFiles: {} fileNode: {} Attributes: {} Times: Creation {} "
-         L"LastAccess {} LastWrite {} FileSize {}",
-         fileNameStr, fileNodeName, findData.dwFileAttributes,
-         findData.ftCreationTime, findData.ftLastAccessTime,
-         findData.ftLastWriteTime, strLength);*/
+    spdlog::info(
+        L"FindFiles: {} fileNode: {} Attributes: {} Times: Creation {} "
+        L"LastAccess {} LastWrite {} FileSize {}",
+        fileNameStr, fileNodeName, findData.dwFileAttributes,
+        fileNode->Times.Creation, fileNode->Times.LastAccess,
+        fileNode->Times.LastWrite, strLength);
     FillFindData(&findData, DokanFileInfo);
   }
   return STATUS_SUCCESS;
@@ -421,7 +430,10 @@ static NTSTATUS DOKAN_CALLBACK GetDiskFreeSpace(
     PULONGLONG FreeBytesAvailable, PULONGLONG TotalNumberOfBytes,
     PULONGLONG TotalNumberOfFreeBytes, PDOKAN_FILE_INFO DokanFileInfo) {
   spdlog::info(L"GetDiskFreeSpace");
-  return STATUS_NOT_IMPLEMENTED;
+  *FreeBytesAvailable = (ULONGLONG)(512 * 1024 * 1024);
+  *TotalNumberOfBytes = 9223372036854775807;
+  *TotalNumberOfFreeBytes = 9223372036854775807;
+  return STATUS_SUCCESS;
 }
 
 static NTSTATUS DOKAN_CALLBACK
@@ -430,7 +442,15 @@ GetVolumeInformation(LPWSTR VolumeNameBuffer, DWORD VolumeNameSize,
                      LPDWORD FileSystemFlags, LPWSTR FileSystemNameBuffer,
                      DWORD FileSystemNameSize, PDOKAN_FILE_INFO DokanFileInfo) {
   spdlog::info(L"GetVolumeInformation");
-  return STATUS_NOT_IMPLEMENTED;
+  wcscpy_s(VolumeNameBuffer, VolumeNameSize, L"Dokan MemFS");
+  *VolumeSerialNumber = 0x19831116;
+  *MaximumComponentLength = 255;
+  *FileSystemFlags = FILE_CASE_SENSITIVE_SEARCH | FILE_CASE_PRESERVED_NAMES |
+                     FILE_SUPPORTS_REMOTE_STORAGE | FILE_UNICODE_ON_DISK;
+  //FILE_PERSISTENT_ACLS | FILE_NAMED_STREAMS;
+
+  wcscpy_s(FileSystemNameBuffer, FileSystemNameSize, L"NTFS");
+  return STATUS_SUCCESS;
 }
 
 static NTSTATUS DOKAN_CALLBACK Mounted(PDOKAN_FILE_INFO DokanFileInfo) {
@@ -477,9 +497,8 @@ SetFileSecurity(LPCWSTR FileName, PSECURITY_INFORMATION SecurityInformation,
   auto fileNodes = fs_instance;
   auto fileNameStr = std::wstring(FileName);
   spdlog::info(L"SetFileSecurity: {}", fileNameStr);
-  static GENERIC_MAPPING MemFSMapping = {
-      FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_GENERIC_EXECUTE,
-      FILE_ALL_ACCESS};
+  static GENERIC_MAPPING MemFSMapping = {FILE_GENERIC_READ, FILE_GENERIC_WRITE,
+                                         FILE_GENERIC_EXECUTE, FILE_ALL_ACCESS};
   auto fileNode = fileNodes->Find(fileNameStr);
 
   if (!fileNode) return STATUS_OBJECT_NAME_NOT_FOUND;
