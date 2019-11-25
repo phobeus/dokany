@@ -36,6 +36,8 @@ ZwCreateFile(LPCWSTR FileName, PDOKAN_IO_SECURITY_CONTEXT SecurityContext,
     DokanFileInfo->IsDirectory = true;
   }
 
+  // TODO Use AccessCheck to check security rights
+
   if (DokanFileInfo->IsDirectory) {
     spdlog::info(L"CreateFile: {} is a Directory", fileNameStr);
 
@@ -447,7 +449,7 @@ GetVolumeInformation(LPWSTR VolumeNameBuffer, DWORD VolumeNameSize,
   *MaximumComponentLength = 255;
   *FileSystemFlags = FILE_CASE_SENSITIVE_SEARCH | FILE_CASE_PRESERVED_NAMES |
                      FILE_SUPPORTS_REMOTE_STORAGE | FILE_UNICODE_ON_DISK;
-  //FILE_PERSISTENT_ACLS | FILE_NAMED_STREAMS;
+  // FILE_PERSISTENT_ACLS | FILE_NAMED_STREAMS;
 
   wcscpy_s(FileSystemNameBuffer, FileSystemNameSize, L"NTFS");
   return STATUS_SUCCESS;
@@ -476,16 +478,37 @@ GetFileSecurity(LPCWSTR FileName, PSECURITY_INFORMATION SecurityInformation,
 
   std::lock_guard<std::mutex> lockFile(fileNode->Security);
 
-  if (fileNode->Security.DescriptorSize > BufferLength) {
-    *LengthNeeded = fileNode->Security.DescriptorSize;
+  // This will make dokan library return a default security descriptor
+  if (!fileNode->Security.Descriptor) return STATUS_NOT_IMPLEMENTED;
+
+  // We have a Security Descriptor but we need to extract only informations requested
+  // 1 - Convert the Security Descriptor to SDDL string with the informations requested
+  LPTSTR pStringBuffer = NULL;
+  if (!ConvertSecurityDescriptorToStringSecurityDescriptor(
+          fileNode->Security.Descriptor, SDDL_REVISION_1, *SecurityInformation,
+          &pStringBuffer, NULL)) {
+    return STATUS_NOT_IMPLEMENTED;
+  }
+
+  // 2 - Convert the SDDL string back to Security Descriptor 
+  PSECURITY_DESCRIPTOR SecurityDescriptorTmp = NULL;
+  ULONG Size = 0;
+  if (!ConvertStringSecurityDescriptorToSecurityDescriptor(
+          pStringBuffer, SDDL_REVISION_1, &SecurityDescriptorTmp, &Size)) {
+    LocalFree(pStringBuffer);
+    return STATUS_NOT_IMPLEMENTED;
+  }
+  LocalFree(pStringBuffer);
+
+  *LengthNeeded = Size;
+  if (Size > BufferLength) {
+    LocalFree(SecurityDescriptorTmp);
     return STATUS_BUFFER_OVERFLOW;
   }
 
-  if (fileNode->Security.Descriptor) {
-    memcpy(SecurityDescriptor, fileNode->Security.Descriptor,
-           fileNode->Security.DescriptorSize);
-    *LengthNeeded = fileNode->Security.DescriptorSize;
-  }
+  // 3 - Copy the new SecurityDescriptor to destination
+  memcpy(SecurityDescriptor, SecurityDescriptorTmp, Size);
+  LocalFree(SecurityDescriptorTmp);
 
   return STATUS_SUCCESS;
 }
