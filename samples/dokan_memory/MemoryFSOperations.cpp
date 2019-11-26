@@ -86,6 +86,10 @@ ZwCreateFile(LPCWSTR FileName, PDOKAN_IO_SECURITY_CONTEXT SecurityContext,
             fileNameStr, false, fileAttributesAndFlags, SecurityContext));
         if (n != STATUS_SUCCESS) return n;
 
+        /*
+         * If the specified file exists and is writable, the function overwrites the file,
+         * the function succeeds, and last-error code is set to ERROR_ALREADY_EXISTS
+         */
         if (fileNode) return STATUS_OBJECT_NAME_COLLISION;
       } break;
       case CREATE_NEW: {
