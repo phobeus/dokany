@@ -752,6 +752,7 @@ BOOL DokanStart(PDOKAN_INSTANCE Instance) {
            sizeof(Instance->UNCName));
 
   eventStart.IrpTimeout = Instance->DokanOptions->Timeout;
+  eventStart.FcbGarbageCollectionIntervalMs = 2000;
 
   SendToDevice(DOKAN_GLOBAL_DEVICE_NAME, IOCTL_EVENT_START, &eventStart,
                sizeof(EVENT_START), &driverInfo, sizeof(EVENT_DRIVER_INFO),
