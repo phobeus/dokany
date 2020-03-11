@@ -908,6 +908,26 @@ IsVolumeOpen(__in PDokanVCB Vcb, __in PFILE_OBJECT FileObject) {
   return FileObject != NULL && FileObject->FsContext == &Vcb->VolumeFileHeader;
 }
 
+NTSTATUS DokanGetVolumeMetrics(__in PIRP Irp,
+                               __in PDokanVCB Vcb) {
+  PIO_STACK_LOCATION irpSp = IoGetCurrentIrpStackLocation(Irp);
+  ULONG outputLength = 0;
+  Irp->IoStatus.Information = sizeof(EVENT_INFORMATION);
+  outputLength = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
+  if (outputLength < sizeof(VOLUME_METRICS)) {
+    return STATUS_BUFFER_OVERFLOW;
+  }
+  VOLUME_METRICS* outputBuffer
+      = (VOLUME_METRICS*)Irp->AssociatedIrp.SystemBuffer;
+  if (outputBuffer == NULL) {
+    return STATUS_INVALID_PARAMETER;
+  }
+  DokanVCBLockRO(Vcb);
+  *outputBuffer = Vcb->VolumeMetrics;
+  DokanVCBUnlock(Vcb);
+  return STATUS_SUCCESS;
+}
+
 NTSTATUS
 DokanDispatchDeviceControl(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp)
 
@@ -1017,6 +1037,11 @@ Return Value:
     case IOCTL_GET_ACCESS_TOKEN:
       status = DokanGetAccessToken(DeviceObject, Irp);
       break;
+
+    case IOCTL_GET_VOLUME_METRICS:
+      status = DokanGetVolumeMetrics(Irp, vcb);
+      break;
+
     default: {
       ULONG baseCode = DEVICE_TYPE_FROM_CTL_CODE(
           irpSp->Parameters.DeviceIoControl.IoControlCode);

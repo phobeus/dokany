@@ -113,6 +113,11 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 #define DOKAN_KEEPALIVE_FILE_NAME L"\\__drive_fs_keepalive"
 #define DOKAN_NOTIFICATION_FILE_NAME L"\\drive_fs_notification"
 
+// The minimum FCB garbage collection interval, below which the parameter is
+// ignored (instantaneous deletion with an interval of 0 is more efficient than
+// using the machinery with a tight interval).
+#define MIN_FCB_GARBAGE_COLLECTION_INTERVAL 500
+
 /*
  * This structure is used for copying UNICODE_STRING from the kernel mode driver
  * into the user mode driver.
@@ -329,6 +334,18 @@ typedef struct _EVENT_CONTEXT {
   } Operation;
 } EVENT_CONTEXT, *PEVENT_CONTEXT;
 
+// The output from IOCTL_GET_VOLUME_METRICS.
+typedef struct _VOLUME_METRICS {
+  ULONG64 NormalFcbGarbageCollectionCycles;
+  // A "cycle" can consist of multiple "passes".
+  ULONG64 NormalFcbGarbageCollectionPasses;
+  ULONG64 ForcedFcbGarbageCollectionPasses;
+  ULONG64 FcbAllocations;
+  ULONG64 FcbDeletions;
+  // A "cancellation" is when a single FCB's garbage collection gets canceled.
+  ULONG64 FcbGarbageCollectionCancellations;
+} VOLUME_METRICS, *PVOLUME_METRICS;
+
 #define WRITE_MAX_SIZE                                                         \
   (EVENT_CONTEXT_MAX_SIZE - sizeof(EVENT_CONTEXT) - 256 * sizeof(WCHAR))
 
@@ -397,6 +414,7 @@ typedef struct _EVENT_START {
   WCHAR MountPoint[260];
   WCHAR UNCName[64];
   ULONG IrpTimeout;
+  ULONG FcbGarbageCollectionIntervalMs;
 } EVENT_START, *PEVENT_START;
 
 #ifdef _MSC_VER
