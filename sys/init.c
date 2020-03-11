@@ -611,7 +611,7 @@ VOID DeleteDeviceDelayed(PDOKAN_GLOBAL dokanGlobal) {
 }
 
 KSTART_ROUTINE DokanDeleteDeviceThread;
-VOID DokanDeleteDeviceThread(PVOID pdokanGlobal)
+VOID DokanDeleteDeviceThread(__in PVOID pdokanGlobal)
 /*++
 
 Routine Description:
