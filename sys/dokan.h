@@ -304,6 +304,16 @@ typedef struct _DokanDiskControlBlock {
 
   // Whether any oplock functionality should be disabled.
   BOOLEAN OplocksDisabled;
+
+  // How often to garbage-collect FCBs. If this is 0, we use the historical
+  // default behavior of freeing them on the spot and in the current context
+  // when the FileCount reaches 0. If this is nonzero, then a background thread
+  // frees a list of FileCount == 0 FCBs at this interval, but requires them to
+  // have had FileCount == 0 for one whole interval before deleting them. The
+  // advantage of the GC approach is that it prevents filter drivers from
+  // exponentially slowing down procedures like zip file extraction due to
+  // repeatedly rebuilding state that they attach to the FCB header.
+  ULONG FcbGarbageCollectionIntervalMs;
 } DokanDCB, *PDokanDCB;
 
 #define IS_DEVICE_READ_ONLY(DeviceObject)                                      \
