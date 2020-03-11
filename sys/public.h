@@ -80,6 +80,9 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 #define FSCTL_NOTIFY_PATH                                                      \
   CTL_CODE(FILE_DEVICE_FILE_SYSTEM, 0x810, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
+#define IOCTL_GET_VOLUME_METRICS                                               \
+  CTL_CODE(FILE_DEVICE_UNKNOWN, 0x811, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
 #define DRIVER_FUNC_INSTALL 0x01
 #define DRIVER_FUNC_REMOVE 0x02
 

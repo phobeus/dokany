@@ -174,37 +174,6 @@ DokanFreeFCB(__in PDokanVCB Vcb, __in PDokanFCB Fcb) {
   ASSERT(Vcb != NULL);
   ASSERT(Fcb != NULL);
 
-  // First try to make sure the FCB is good. We have had some BSODs trying to
-  // access fields in an invalid FCB before adding these checks.
-
-  if (GetIdentifierType(Vcb) != VCB) {
-    DokanCaptureBackTrace(&trace);
-    return DokanLogError(&logger, STATUS_INVALID_PARAMETER,
-        L"Freeing an FCB with an invalid VCB at %I64x:%I64x,"
-        L" identifier type: %x",
-        trace.Address, trace.ReturnAddresses, GetIdentifierType(Vcb));
-  }
-
-  // This check should identify wildly bogus FCB addresses like 12345.
-  LONG64 validFcbMask = Vcb->ValidFcbMask;
-  if ((validFcbMask & (LONG64)Fcb) != validFcbMask) {
-    DokanCaptureBackTrace(&trace);
-    return DokanLogError(&logger, STATUS_INVALID_PARAMETER,
-        L"Freeing invalid FCB at %I64x:%I64x: %I64x, which does not match mask:"
-        L" %I64x",
-        trace.Address, trace.ReturnAddresses, Fcb, validFcbMask);
-  }
-
-  // Hopefully if it passes the above check we can at least dereference it,
-  // although that's not necessarily true. If we can read 4 bytes at the
-  // address, we can determine if it's an invalid or already freed FCB.
-  if (GetIdentifierType(Fcb) != FCB) {
-    DokanCaptureBackTrace(&trace);
-    return DokanLogError(&logger, STATUS_INVALID_PARAMETER,
-        L"Freeing FCB that has wrong identifier type at %I64x:%I64x: %x",
-        trace.Address, trace.ReturnAddresses, GetIdentifierType(Fcb));
-  }
-
   ASSERT(Fcb->Vcb == Vcb);
 
   DokanVCBLockRW(Vcb);
