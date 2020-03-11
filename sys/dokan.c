@@ -1097,10 +1097,11 @@ NTSTATUS AgeAndDeleteFcbGarbage(__in PDokanVCB Vcb, __in PKTIMER Timer) {
 }
 
 // The thread function for the dedicated FCB garbage collection thread.
-VOID FcbGarbageCollectorThread(__in PDokanVCB Vcb) {
+VOID FcbGarbageCollectorThread(__in PVOID pVcb) {
   KTIMER timer;
   NTSTATUS status = STATUS_INVALID_PARAMETER;
   LARGE_INTEGER timeout = {0};
+  PDokanVCB Vcb = pVcb;
   DOKAN_INIT_LOGGER(logger, Vcb->Dcb->DeviceObject->DriverObject, 0);
   KeInitializeTimerEx(&timer, SynchronizationTimer);
   KeSetTimerEx(&timer, timeout, Vcb->Dcb->FcbGarbageCollectionIntervalMs, NULL);
