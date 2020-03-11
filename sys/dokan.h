@@ -232,6 +232,11 @@ typedef struct _DokanBackTrace {
   ULONG64 ReturnAddresses;
 } DokanBackTrace, *PDokanBackTrace;
 
+// Captures a trace where Address is the full address of the call site
+// instruction after the DokanCaptureBackTrace call, and ReturnAddresses
+// indicates the 3 return addresses below that.
+VOID DokanCaptureBackTrace(__out PDokanBackTrace Trace);
+
 // make sure Identifier is the top of struct
 typedef struct _DokanDiskControlBlock {
 

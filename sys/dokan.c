@@ -552,6 +552,16 @@ VOID DokanLogInfo(__in PDOKAN_LOGGER Logger, __in LPCTSTR Format, ...) {
   }
 }
 
+VOID DokanCaptureBackTrace(__out PDokanBackTrace Trace) {
+  PVOID rawTrace[4];
+  USHORT count = RtlCaptureStackBackTrace(1, 4, rawTrace, NULL);
+  Trace->Address = (ULONG64)((count > 0) ? rawTrace[0] : 0);
+  Trace->ReturnAddresses =
+        (((count > 1) ? ((ULONG64)rawTrace[1] & 0xfffff) : 0) << 40)
+      | (((count > 2) ? ((ULONG64)rawTrace[2] & 0xfffff) : 0) << 20)
+      |  ((count > 3) ? ((ULONG64)rawTrace[3] & 0xfffff) : 0);
+}
+
 VOID DokanPrintNTStatus(NTSTATUS Status) {
   DDbgPrint("  status = 0x%x\n", Status);
 
