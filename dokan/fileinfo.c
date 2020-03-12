@@ -421,8 +421,8 @@ VOID DispatchQueryInformation(HANDLE Handle, PEVENT_CONTEXT EventContext,
   PDOKAN_OPEN_INFO openInfo;
   ULONG sizeOfEventInfo;
 
-  sizeOfEventInfo =
-      sizeof(EVENT_INFORMATION) - 8 + EventContext->Operation.File.BufferLength;
+  sizeOfEventInfo = DispatchGetEventInformationLength(
+      EventContext->Operation.File.BufferLength);
 
   CheckFileName(EventContext->Operation.File.FileName);
 

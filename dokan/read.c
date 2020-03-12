@@ -30,8 +30,8 @@ VOID DispatchRead(HANDLE Handle, PEVENT_CONTEXT EventContext,
   DOKAN_FILE_INFO fileInfo;
   ULONG sizeOfEventInfo;
 
-  sizeOfEventInfo =
-      sizeof(EVENT_INFORMATION) - 8 + EventContext->Operation.Read.BufferLength;
+  sizeOfEventInfo = DispatchGetEventInformationLength(
+      EventContext->Operation.Read.BufferLength);
 
   CheckFileName(EventContext->Operation.Read.FileName);
 

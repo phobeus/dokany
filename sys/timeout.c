@@ -37,7 +37,7 @@ VOID DokanUnmount(__in PDokanDCB Dcb) {
   eventContext = AllocateEventContextRaw(eventLength);
 
   if (eventContext == NULL) {
-    ; // STATUS_INSUFFICIENT_RESOURCES;
+    // STATUS_INSUFFICIENT_RESOURCES;
     DDbgPrint(" Not able to allocate eventContext.\n");
     if (vcb) {
       DokanEventRelease(vcb->DeviceObject, NULL);
@@ -250,13 +250,15 @@ DokanResetPendingIrpTimeout(__in PDEVICE_OBJECT DeviceObject,
   PLIST_ENTRY thisEntry, nextEntry, listHead;
   PIRP_ENTRY irpEntry;
   PDokanVCB vcb;
-  PEVENT_INFORMATION eventInfo;
+  PEVENT_INFORMATION eventInfo = NULL;
   ULONG timeout; // in milisecond
 
   DDbgPrint("==> ResetPendingIrpTimeout\n");
 
-  eventInfo = (PEVENT_INFORMATION)Irp->AssociatedIrp.SystemBuffer;
-  ASSERT(eventInfo != NULL);
+  NTSTATUS result = DokanGetEventInformation(Irp, &eventInfo);
+  if (!NT_SUCCESS(result)) {
+    return result;
+  }
 
   timeout = eventInfo->Operation.ResetTimeout.Timeout;
   if (DOKAN_IRP_PENDING_TIMEOUT_RESET_MAX < timeout) {

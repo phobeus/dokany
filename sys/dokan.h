@@ -845,6 +845,9 @@ AllocateEventContext(__in PDokanDCB Dcb, __in PIRP Irp,
 VOID DokanFreeEventContext(__in PEVENT_CONTEXT EventContext);
 
 NTSTATUS
+DokanGetEventInformation(__in PIRP Irp, _Inout_ PEVENT_INFORMATION *eventInfo);
+
+NTSTATUS
 DokanRegisterPendingIrp(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp,
                         __in PEVENT_CONTEXT EventContext, __in ULONG Flags);
 

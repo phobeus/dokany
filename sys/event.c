@@ -360,7 +360,25 @@ DokanRegisterPendingIrpForService(__in PDEVICE_OBJECT DeviceObject,
                                 0, // Flags
                                 FALSE,
                                 /*CurrentStatus=*/STATUS_SUCCESS);
+}
+
+NTSTATUS
+DokanGetEventInformation(__in PIRP Irp, _Inout_ PEVENT_INFORMATION *eventInfo) {
+  ULONG inBufferLen;
+  PIO_STACK_LOCATION irpSp;
+
+  irpSp = IoGetCurrentIrpStackLocation(Irp);
+  inBufferLen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
+  if (inBufferLen < sizeof(EVENT_INFORMATION)) {
+    DDbgPrint("  wrong input buffer length\n");
+    return STATUS_INVALID_PARAMETER;
   }
+
+  *eventInfo = (PEVENT_INFORMATION)Irp->AssociatedIrp.SystemBuffer;
+  ASSERT(*eventInfo != NULL);
+
+  return STATUS_SUCCESS;
+}
 
 // When user-mode file system application returns EventInformation,
 // search corresponding pending IRP and complete it
@@ -370,10 +388,14 @@ DokanCompleteIrp(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
   PLIST_ENTRY thisEntry, nextEntry, listHead;
   PIRP_ENTRY irpEntry;
   PDokanVCB vcb;
-  PEVENT_INFORMATION eventInfo;
+  PEVENT_INFORMATION eventInfo = NULL;
 
-  eventInfo = (PEVENT_INFORMATION)Irp->AssociatedIrp.SystemBuffer;
-  ASSERT(eventInfo != NULL);
+  DDbgPrint("==> DokanCompleteIrp\n");
+
+  NTSTATUS result = DokanGetEventInformation(Irp, &eventInfo);
+  if (!NT_SUCCESS(result)) {
+    return result;
+  }
 
   // DDbgPrint("==> DokanCompleteIrp [EventInfo #%X]\n",
   // eventInfo->SerialNumber);
@@ -784,11 +806,13 @@ DokanEventWrite(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
   PLIST_ENTRY thisEntry, nextEntry, listHead;
   PIRP_ENTRY irpEntry;
   PDokanVCB vcb;
-  PEVENT_INFORMATION eventInfo;
+  PEVENT_INFORMATION eventInfo = NULL;
   PIRP writeIrp;
 
-  eventInfo = (PEVENT_INFORMATION)Irp->AssociatedIrp.SystemBuffer;
-  ASSERT(eventInfo != NULL);
+  NTSTATUS result = DokanGetEventInformation(Irp, &eventInfo);
+  if (!NT_SUCCESS(result)) {
+    return result;
+  }
 
   DDbgPrint("==> DokanEventWrite [EventInfo #%X]\n", eventInfo->SerialNumber);
 

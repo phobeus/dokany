@@ -27,7 +27,7 @@ DokanGetAccessToken(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
   PLIST_ENTRY thisEntry, nextEntry, listHead;
   PIRP_ENTRY irpEntry;
   PDokanVCB vcb;
-  PEVENT_INFORMATION eventInfo;
+  PEVENT_INFORMATION eventInfo = NULL;
   PACCESS_TOKEN accessToken;
   NTSTATUS status = STATUS_INVALID_PARAMETER;
   HANDLE handle;
@@ -41,8 +41,11 @@ DokanGetAccessToken(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
   vcb = DeviceObject->DeviceExtension;
 
   __try {
-    eventInfo = (PEVENT_INFORMATION)Irp->AssociatedIrp.SystemBuffer;
-    ASSERT(eventInfo != NULL);
+    NTSTATUS result = DokanGetEventInformation(Irp, &eventInfo);
+    if (!NT_SUCCESS(result)) {
+      status = result;
+      __leave;
+    }
 
     if (Irp->RequestorMode != UserMode) {
       DDbgPrint("  needs to be called from user-mode\n");

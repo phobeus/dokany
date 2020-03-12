@@ -135,8 +135,9 @@ VOID DispatchQuerySecurity(HANDLE Handle, PEVENT_CONTEXT EventContext,
   NTSTATUS status = STATUS_NOT_IMPLEMENTED;
   ULONG lengthNeeded = 0;
 
-  eventInfoLength = sizeof(EVENT_INFORMATION) - 8 +
-                    EventContext->Operation.Security.BufferLength;
+  eventInfoLength = DispatchGetEventInformationLength(
+      EventContext->Operation.Security.BufferLength);
+
   CheckFileName(EventContext->Operation.Security.FileName);
 
   eventInfo = DispatchCommon(EventContext, eventInfoLength, DokanInstance,
