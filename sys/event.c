@@ -581,8 +581,8 @@ DokanEventStart(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
         L"Buffer IN/OUT received do not match the expected size.");
   }
 
-  eventStart = ExAllocatePool(sizeof(EVENT_START));
-  baseGuidString = ExAllocatePool(64 * sizeof(WCHAR));
+  eventStart = DokanAllocNPaged(sizeof(EVENT_START));
+  baseGuidString = DokanAllocNPagedZero(64 * sizeof(WCHAR));
   if (eventStart == NULL || baseGuidString == NULL) {
     if (eventStart)
       ExFreePool(eventStart);
@@ -714,7 +714,7 @@ DokanEventStart(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
     ExFreePool(baseGuidString);
     return DokanLogError(&logger, status, L"Failed to convert GUID to string.");
   }
-  RtlZeroMemory(baseGuidString, 64 * sizeof(WCHAR));
+
   RtlStringCchCopyW(baseGuidString, 64, unicodeGuid.Buffer);
   RtlFreeUnicodeString(&unicodeGuid);
 
