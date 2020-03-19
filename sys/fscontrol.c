@@ -21,6 +21,7 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "dokan.h"
+#include "struct_helper.hpp"
 #include <wdmsec.h>
 
 #ifdef ALLOC_PRAGMA
@@ -387,22 +388,11 @@ DokanUserFsRequest(__in PDEVICE_OBJECT DeviceObject, __in PIRP *pIrp) {
     break;
 
   case FSCTL_NOTIFY_PATH: {
-    PDOKAN_NOTIFY_PATH_INTERMEDIATE pNotifyPath;
+    PDOKAN_NOTIFY_PATH_INTERMEDIATE pNotifyPath = NULL;
+    GET_IRP_DOKAN_NOTIFY_PATH_INTERMEDIATE_BUFFER_RETURN((*pIrp), pNotifyPath,
+                                                         Input)
+
     irpSp = IoGetCurrentIrpStackLocation(*pIrp);
-    if (irpSp->Parameters.DeviceIoControl.InputBufferLength <
-        sizeof(DOKAN_NOTIFY_PATH_INTERMEDIATE)) {
-      DDbgPrint(
-          "Input buffer is too small (< DOKAN_NOTIFY_PATH_INTERMEDIATE)\n");
-      return STATUS_BUFFER_TOO_SMALL;
-    }
-    pNotifyPath =
-        (PDOKAN_NOTIFY_PATH_INTERMEDIATE)(*pIrp)->AssociatedIrp.SystemBuffer;
-    if (irpSp->Parameters.DeviceIoControl.InputBufferLength <
-        sizeof(DOKAN_NOTIFY_PATH_INTERMEDIATE) + pNotifyPath->Length -
-            sizeof(WCHAR)) {
-      DDbgPrint("Input buffer is too small\n");
-      return STATUS_BUFFER_TOO_SMALL;
-    }
     fileObject = irpSp->FileObject;
     if (fileObject == NULL) {
       return DokanLogError(&logger, STATUS_INVALID_PARAMETER,

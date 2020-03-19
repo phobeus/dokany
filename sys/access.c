@@ -20,6 +20,7 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "dokan.h"
+#include "struct_helper.hpp"
 
 NTSTATUS
 DokanGetAccessToken(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
@@ -27,22 +28,17 @@ DokanGetAccessToken(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
   PLIST_ENTRY thisEntry, nextEntry, listHead;
   PIRP_ENTRY irpEntry;
   PDokanVCB vcb;
-  PEVENT_INFORMATION eventInfo;
+  PEVENT_INFORMATION eventInfo = NULL;
   PACCESS_TOKEN accessToken;
   NTSTATUS status = STATUS_INVALID_PARAMETER;
   HANDLE handle;
-  PIO_STACK_LOCATION irpSp = NULL;
   BOOLEAN hasLock = FALSE;
-  ULONG outBufferLen;
-  ULONG inBufferLen;
   PACCESS_STATE accessState = NULL;
 
   DDbgPrint("==> DokanGetAccessToken\n");
   vcb = DeviceObject->DeviceExtension;
 
   __try {
-    eventInfo = (PEVENT_INFORMATION)Irp->AssociatedIrp.SystemBuffer;
-    ASSERT(eventInfo != NULL);
 
     if (Irp->RequestorMode != UserMode) {
       DDbgPrint("  needs to be called from user-mode\n");
@@ -56,15 +52,8 @@ DokanGetAccessToken(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
       __leave;
     }
 
-    irpSp = IoGetCurrentIrpStackLocation(Irp);
-    outBufferLen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
-    inBufferLen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
-    if (outBufferLen != sizeof(EVENT_INFORMATION) ||
-        inBufferLen != sizeof(EVENT_INFORMATION)) {
-      DDbgPrint("  wrong input or output buffer length\n");
-      status = STATUS_INVALID_PARAMETER;
-      __leave;
-    }
+    GET_IRP_GENERIC_BUFFER_LEAVE(Irp, eventInfo, Input)
+    GET_IRP_GENERIC_BUFFER_LEAVE(Irp, eventInfo, Output)
 
     ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
     KeAcquireSpinLock(&vcb->Dcb->PendingIrp.ListLock, &oldIrql);

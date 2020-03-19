@@ -21,6 +21,7 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "dokan.h"
+#include "struct_helper.hpp"
 
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(PAGE, DokanOplockComplete)
@@ -539,9 +540,6 @@ VOID RemoveSessionDevices(__in PDOKAN_GLOBAL dokanGlobal,
 // start event dispatching
 NTSTATUS
 DokanEventStart(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
-  ULONG outBufferLen;
-  ULONG inBufferLen;
-  PIO_STACK_LOCATION irpSp = NULL;
   PEVENT_START eventStart = NULL;
   PEVENT_DRIVER_INFO driverInfo = NULL;
   PDOKAN_GLOBAL dokanGlobal = NULL;
@@ -570,12 +568,10 @@ DokanEventStart(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
     return STATUS_INVALID_PARAMETER;
   }
 
-  irpSp = IoGetCurrentIrpStackLocation(Irp);
-
-  outBufferLen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
-  inBufferLen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
-  if (outBufferLen != sizeof(EVENT_DRIVER_INFO) ||
-      inBufferLen != sizeof(EVENT_START)) {
+  // We just use eventStart for his type here
+  GET_IRP_GENERIC_BUFFER(Irp, eventStart, Input)
+  GET_IRP_GENERIC_BUFFER(Irp, driverInfo, Output)
+  if (!eventStart || !driverInfo) {
     return DokanLogError(
         &logger, STATUS_INSUFFICIENT_RESOURCES,
         L"Buffer IN/OUT received do not match the expected size.");
@@ -608,7 +604,6 @@ DokanEventStart(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
     startFailure = TRUE;
   }
 
-  driverInfo = Irp->AssociatedIrp.SystemBuffer;
   if (startFailure) {
     driverInfo->DriverVersion = DOKAN_DRIVER_VERSION;
     driverInfo->Status = DOKAN_START_FAILED;

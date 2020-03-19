@@ -21,6 +21,7 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "dokan.h"
+#include "struct_helper.hpp"
 
 #include <mountdev.h>
 #include <mountmgr.h>
@@ -80,26 +81,26 @@ GlobalDeviceControl(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp) {
     RemoveSessionDevices(dokanGlobal, GetCurrentSessionId(Irp));
     status = STATUS_SUCCESS;
     break;
-  case IOCTL_SET_DEBUG_MODE:
-    if (irpSp->Parameters.DeviceIoControl.InputBufferLength >= sizeof(ULONG)) {
-      g_Debug = *(ULONG *)Irp->AssociatedIrp.SystemBuffer;
-      status = STATUS_SUCCESS;
-    }
+  case IOCTL_SET_DEBUG_MODE: {
+    PULONG pDebug = NULL;
+    GET_IRP_GENERIC_BUFFER_BREAK(Irp, pDebug, Input)
+    g_Debug = *pDebug;
+    status = STATUS_SUCCESS;
     DDbgPrint("  IOCTL_SET_DEBUG_MODE: %d\n", g_Debug);
-    break;
+  } break;
   case IOCTL_EVENT_MOUNTPOINT_LIST:
     if (GetIdentifierType(dokanGlobal) != DGL) {
       return STATUS_INVALID_PARAMETER;
     }
     status = DokanGetMountPointList(DeviceObject, Irp, dokanGlobal);
     break;
-  case IOCTL_TEST:
-    if (irpSp->Parameters.DeviceIoControl.OutputBufferLength >= sizeof(ULONG)) {
-      *(ULONG *)Irp->AssociatedIrp.SystemBuffer = DOKAN_DRIVER_VERSION;
-      Irp->IoStatus.Information = sizeof(ULONG);
-      status = STATUS_SUCCESS;
-    }
-    break;
+  case IOCTL_TEST: {
+    PULONG pVersion = NULL;
+    GET_IRP_GENERIC_BUFFER_BREAK(Irp, pVersion, Output)
+    *pVersion = DOKAN_DRIVER_VERSION;
+    Irp->IoStatus.Information = sizeof(ULONG);
+    status = STATUS_SUCCESS;
+  } break;
   case IOCTL_EVENT_RELEASE:
     DDbgPrint("  IOCTL_EVENT_RELEASE\n");
     status = DokanGlobalEventRelease(DeviceObject, Irp);
@@ -131,14 +132,12 @@ DiskDeviceControl(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp) {
   PDokanVCB vcb;
   NTSTATUS status = STATUS_NOT_IMPLEMENTED;
   ULONG outputLength = 0;
-  ULONG inputLength = 0;
   DOKAN_INIT_LOGGER(logger, DeviceObject->DriverObject, IRP_MJ_DEVICE_CONTROL);
 
   DDbgPrint("   => DokanDiskDeviceControl\n");
   irpSp = IoGetCurrentIrpStackLocation(Irp);
   dcb = DeviceObject->DeviceExtension;
   outputLength = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
-  inputLength = irpSp->Parameters.DeviceIoControl.InputBufferLength;
 
   if (GetIdentifierType(dcb) != DCB) {
     PrintIdType(dcb);
@@ -362,23 +361,13 @@ DiskDeviceControl(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp) {
   case IOCTL_STORAGE_QUERY_PROPERTY:
     DDbgPrint("  IOCTL_STORAGE_QUERY_PROPERTY\n");
     PSTORAGE_PROPERTY_QUERY query = NULL;
-    if (inputLength < sizeof(STORAGE_PROPERTY_QUERY)) {
-      status = STATUS_BUFFER_TOO_SMALL;
-      Irp->IoStatus.Information = 0;
-      break;
-    }
-    query = (PSTORAGE_PROPERTY_QUERY)Irp->AssociatedIrp.SystemBuffer;
-    ASSERT(query != NULL);
+    GET_IRP_GENERIC_BUFFER_BREAK(Irp, query, Output)
     if (query->QueryType == PropertyExistsQuery) {
       if (query->PropertyId == StorageDeviceUniqueIdProperty) {
-        PSTORAGE_DEVICE_UNIQUE_IDENTIFIER storage;
         DDbgPrint("    PropertyExistsQuery StorageDeviceUniqueIdProperty\n");
-        if (outputLength < sizeof(STORAGE_DEVICE_UNIQUE_IDENTIFIER)) {
-          status = STATUS_BUFFER_TOO_SMALL;
-          Irp->IoStatus.Information = 0;
-          break;
-        }
-        storage = Irp->AssociatedIrp.SystemBuffer;
+
+        PSTORAGE_DEVICE_UNIQUE_IDENTIFIER storage = NULL;
+        GET_IRP_GENERIC_BUFFER_BREAK(Irp, storage, Output)
 
         status = STATUS_SUCCESS;
       } else if (query->PropertyId == StorageDeviceWriteCacheProperty) {
@@ -460,7 +449,6 @@ DiskDeviceControl(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp) {
     ASSERT(uniqueId != NULL);
 
     uniqueId->UniqueIdLength = dcb->DiskDeviceName->Length;
-
     if (sizeof(USHORT) + uniqueId->UniqueIdLength <= outputLength) {
       RtlCopyMemory((PCHAR)uniqueId->UniqueId, dcb->DiskDeviceName->Buffer,
                     uniqueId->UniqueIdLength);
@@ -519,18 +507,13 @@ DiskDeviceControl(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp) {
                  status);
   } break;
   case IOCTL_MOUNTDEV_LINK_CREATED: {
-    PMOUNTDEV_NAME mountdevName = Irp->AssociatedIrp.SystemBuffer;
     DDbgPrint("   IOCTL_MOUNTDEV_LINK_CREATED\n");
-    if (inputLength < sizeof(MOUNTDEV_NAME) ||
-        inputLength < sizeof(MOUNTDEV_NAME) + mountdevName->NameLength) {
-      status = STATUS_BUFFER_TOO_SMALL;
-      Irp->IoStatus.Information = 0;
-      break;
-    }
+
+    PMOUNTDEV_NAME mountdevName = NULL;
+    GET_IRP_MOUNTDEV_NAME_BUFFER_BREAK(Irp, mountdevName, Input)
 
     status = STATUS_SUCCESS;
-    if (!IsUnmountPending(DeviceObject) && mountdevName != NULL &&
-        mountdevName->NameLength > 0) {
+    if (!IsUnmountPending(DeviceObject) && mountdevName->NameLength > 0) {
       WCHAR *symbolicLinkNameBuf =
           DokanAllocNPagedZero((mountdevName->NameLength + 1) * sizeof(WCHAR));
       if (symbolicLinkNameBuf == NULL) {
@@ -598,14 +581,11 @@ DiskDeviceControl(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp) {
     }
   } break;
   case IOCTL_MOUNTDEV_LINK_DELETED: {
-    PMOUNTDEV_NAME mountdevName = Irp->AssociatedIrp.SystemBuffer;
     DDbgPrint("   IOCTL_MOUNTDEV_LINK_DELETED\n");
-    if (inputLength < sizeof(MOUNTDEV_NAME) ||
-        inputLength < sizeof(MOUNTDEV_NAME) + mountdevName->NameLength) {
-      status = STATUS_BUFFER_TOO_SMALL;
-      Irp->IoStatus.Information = 0;
-      break;
-    }
+
+    PMOUNTDEV_NAME mountdevName = NULL;
+    GET_IRP_MOUNTDEV_NAME_BUFFER_BREAK(Irp, mountdevName, Input)
+
     status = STATUS_SUCCESS;
     if (dcb->UseMountManager) {
       if (mountdevName != NULL && mountdevName->NameLength > 0) {
@@ -945,7 +925,6 @@ Return Value:
   PIO_STACK_LOCATION irpSp;
   NTSTATUS status = STATUS_NOT_IMPLEMENTED;
   ULONG controlCode = 0;
-  ULONG outputLength = 0;
   // {DCA0E0A5-D2CA-4f0f-8416-A6414657A77A}
   // GUID dokanGUID = { 0xdca0e0a5, 0xd2ca, 0x4f0f, { 0x84, 0x16, 0xa6, 0x41,
   // 0x46, 0x57, 0xa7, 0x7a } };
@@ -954,7 +933,6 @@ Return Value:
     Irp->IoStatus.Information = 0;
 
     irpSp = IoGetCurrentIrpStackLocation(Irp);
-    outputLength = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
 
     controlCode = irpSp->Parameters.DeviceIoControl.IoControlCode;
 
