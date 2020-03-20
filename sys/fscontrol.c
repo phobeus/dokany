@@ -21,7 +21,7 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "dokan.h"
-#include "struct_helper.hpp"
+#include "irp_buffer_helper.h"
 #include <wdmsec.h>
 
 #ifdef ALLOC_PRAGMA

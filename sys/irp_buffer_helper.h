@@ -27,7 +27,7 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 // The goal of this defines are to simplify IRP
 // DeviceIOControl Buffer usage and safety size check
 
-// Exit type in case of failure
+// Exit types in size check failure
 #define DOKAN_EXIT_NONE(Irp, Status, InformationSize)
 #define DOKAN_EXIT_LEAVE(Irp, Status, InformationSize)                         \
   Irp->IoStatus.Information = InformationSize;                                 \
@@ -60,7 +60,7 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 #define GET_IRP_BUFFER(Irp, Buffer, BufferIOType, CompareSize)                 \
   GET_IRP_BUFFER_EX(Irp, Buffer, BufferIOType, CompareSize, DOKAN_EXIT_NONE,   \
                     0, 0)
-// Outputbuffer
+// Get Buffer from IRP for Outputbuffer with specific expected needed size
 #define GET_IRP_OUPUTBUFFER_EX(Irp, Buffer, NeededSize, Exit, Status,          \
                                InformationSize)                                \
   {                                                                            \
@@ -76,7 +76,7 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
   }
 #define GET_IRP_OUPUTBUFFER(Irp, Buffer, NeededSize, Exit)                     \
   GET_IRP_OUPUTBUFFER_EX(Irp, Buffer, NeededSize, Exit,                        \
-                         STATUS_BUFFER_TOO_SMALL, 0)                                \
+                         STATUS_BUFFER_TOO_SMALL, 0)
 
 // Specific buffer calcul size
 #define CUSTOM_SIZE_COMPARE(Buffer, BufferLen, LengthMember)                   \
@@ -122,22 +122,12 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
   GET_IRP_BUFFER_EX(Irp, Buffer, BufferIOType, GENERIC_SIZE_COMPARE,           \
                     DOKAN_EXIT_RETURN, STATUS_BUFFER_TOO_SMALL, 0)
 
-// Get DeviceIOControl Buffer from IRP for EVENT_INFORMATION
-//#define GET_IRP_EVENT_INFORMATION_BUFFER(Irp, Buffer, BufferIOType)            \
-//  GET_IRP_BUFFER(Irp, Buffer, BufferIOType, EVENT_INFORMATION_SIZE_COMPARE)
-//#define GET_IRP_EVENT_INFORMATION_BUFFER_LEAVE(Irp, Buffer, BufferIOType,      \
-//                                              Status, InformationSize)            \
-//  GET_IRP_BUFFER_EX(Irp, Buffer, BufferIOType, EVENT_INFORMATION_SIZE_COMPARE, \
-//                    DOKAN_EXIT_LEAVE, Status, InformationSize)
-
 // Get DeviceIOControl Buffer from IRP for MOUNTDEV_NAME
 #define GET_IRP_MOUNTDEV_NAME_BUFFER(Irp, Buffer, BufferIOType)                \
   GET_IRP_BUFFER(Irp, Buffer, BufferIOType, NAMELEN_SIZE_COMPARE)
 #define GET_IRP_MOUNTDEV_NAME_BUFFER_BREAK(Irp, Buffer, BufferIOType)          \
   GET_IRP_BUFFER_EX(Irp, Buffer, BufferIOType, NAMELEN_SIZE_COMPARE,           \
                     DOKAN_EXIT_BREAK, STATUS_BUFFER_TOO_SMALL, 0)
-
-// Get DeviceIOControl Buffer from IRP for QUERY_PATH_REQUEST
 
 // Get DeviceIOControl Buffer from IRP for DOKAN_NOTIFY_PATH_INTERMEDIATE
 #define GET_IRP_DOKAN_NOTIFY_PATH_INTERMEDIATE_BUFFER_RETURN(Irp, Buffer,      \

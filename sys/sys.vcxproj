@@ -369,7 +369,7 @@
   <ItemGroup>
     <ClInclude Include="dokan.h" />
     <ClInclude Include="public.h" />
-    <ClInclude Include="struct_helper.hpp" />
+    <ClInclude Include="irp_buffer_helper.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="dokan.rc" />

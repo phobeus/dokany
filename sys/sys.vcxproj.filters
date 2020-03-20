@@ -96,7 +96,7 @@
     <ClInclude Include="public.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="struct_helper.hpp">
+    <ClInclude Include="irp_buffer_helper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -21,7 +21,7 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "dokan.h"
-#include "struct_helper.hpp"
+#include "irp_buffer_helper.h"
 
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(PAGE, DokanOplockComplete)
@@ -371,13 +371,11 @@ DokanCompleteIrp(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
   PLIST_ENTRY thisEntry, nextEntry, listHead;
   PIRP_ENTRY irpEntry;
   PDokanVCB vcb;
-  PEVENT_INFORMATION eventInfo;
+  PEVENT_INFORMATION eventInfo = NULL;
 
-  eventInfo = (PEVENT_INFORMATION)Irp->AssociatedIrp.SystemBuffer;
-  ASSERT(eventInfo != NULL);
+  DDbgPrint("==> DokanCompleteIrp\n")
 
-  // DDbgPrint("==> DokanCompleteIrp [EventInfo #%X]\n",
-  // eventInfo->SerialNumber);
+  GET_IRP_GENERIC_BUFFER_RETURN(Irp, eventInfo, Input)
 
   vcb = DeviceObject->DeviceExtension;
   if (GetIdentifierType(vcb) != VCB) {
@@ -667,7 +665,7 @@ DokanEventStart(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
   ExAcquireResourceExclusiveLite(&dokanGlobal->Resource, TRUE);
 
   DOKAN_CONTROL dokanControl;
-  RtlZeroMemory(&dokanControl, sizeof(dokanControl));
+  RtlZeroMemory(&dokanControl, sizeof(DOKAN_CONTROL));
   RtlStringCchCopyW(dokanControl.MountPoint, MAXIMUM_FILENAME_LENGTH,
                     L"\\DosDevices\\");
   if (wcslen(eventStart->MountPoint) == 1) {
@@ -796,11 +794,10 @@ DokanEventWrite(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
   PLIST_ENTRY thisEntry, nextEntry, listHead;
   PIRP_ENTRY irpEntry;
   PDokanVCB vcb;
-  PEVENT_INFORMATION eventInfo;
+  PEVENT_INFORMATION eventInfo = NULL;
   PIRP writeIrp;
 
-  eventInfo = (PEVENT_INFORMATION)Irp->AssociatedIrp.SystemBuffer;
-  ASSERT(eventInfo != NULL);
+  GET_IRP_GENERIC_BUFFER_RETURN(Irp, eventInfo, Input)
 
   DDbgPrint("==> DokanEventWrite [EventInfo #%X]\n", eventInfo->SerialNumber);
 
