@@ -123,8 +123,6 @@ NTSTATUS DokanOplockRequest(__in PIRP *pIrp) {
   BOOLEAN AcquiredFcb = FALSE;
 
   PREQUEST_OPLOCK_INPUT_BUFFER InputBuffer = NULL;
-  ULONG InputBufferLength;
-  ULONG OutputBufferLength;
 
   PAGED_CODE();
 
@@ -169,19 +167,13 @@ NTSTATUS DokanOplockRequest(__in PIRP *pIrp) {
   //
   if (FsControlCode == FSCTL_REQUEST_OPLOCK) {
 
-    InputBufferLength = IrpSp->Parameters.FileSystemControl.InputBufferLength;
-    InputBuffer = (PREQUEST_OPLOCK_INPUT_BUFFER)Irp->AssociatedIrp.SystemBuffer;
-
-    OutputBufferLength = IrpSp->Parameters.FileSystemControl.OutputBufferLength;
-
     //
     //  Check for a minimum length on the input and ouput buffers.
     //
-    if ((InputBufferLength < sizeof(REQUEST_OPLOCK_INPUT_BUFFER)) ||
-        (OutputBufferLength < sizeof(REQUEST_OPLOCK_OUTPUT_BUFFER))) {
-      DDbgPrint("    DokanOplockRequest STATUS_BUFFER_TOO_SMALL\n");
-      return STATUS_BUFFER_TOO_SMALL;
-    }
+    GET_IRP_GENERIC_BUFFER_RETURN(Irp, InputBuffer, Input)
+    // Use OutputBuffer only for buffer size check
+    PREQUEST_OPLOCK_OUTPUT_BUFFER OutputBuffer = NULL;
+    GET_IRP_GENERIC_BUFFER_RETURN(Irp, OutputBuffer, Output)
   }
 
   //

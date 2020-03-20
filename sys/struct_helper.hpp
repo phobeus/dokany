@@ -60,11 +60,29 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 #define GET_IRP_BUFFER(Irp, Buffer, BufferIOType, CompareSize)                 \
   GET_IRP_BUFFER_EX(Irp, Buffer, BufferIOType, CompareSize, DOKAN_EXIT_NONE,   \
                     0, 0)
+// Outputbuffer
+#define GET_IRP_OUPUTBUFFER_EX(Irp, Buffer, NeededSize, Exit, Status,          \
+                               InformationSize)                                \
+  {                                                                            \
+    ULONG irpBufferLen = IoGetCurrentIrpStackLocation(Irp)                     \
+                             ->Parameters.DeviceIoControl.OutputBufferLength;  \
+    Buffer = Irp->AssociatedIrp.SystemBuffer;                                  \
+    ASSERT(Buffer != NULL);                                                    \
+    if (NeededSize > irpBufferLen) {                                           \
+      DDbgPrint("  Invalid Output Buffer length \n");                          \
+      Buffer = NULL;                                                           \
+      Exit(Irp, Status, InformationSize);                                      \
+    }                                                                          \
+  }
+#define GET_IRP_OUPUTBUFFER(Irp, Buffer, NeededSize, Exit)                     \
+  GET_IRP_OUPUTBUFFER_EX(Irp, Buffer, NeededSize, Exit,                        \
+                         STATUS_BUFFER_TOO_SMALL, 0)                                \
 
-// Specific type calcul size
+// Specific buffer calcul size
 #define CUSTOM_SIZE_COMPARE(Buffer, BufferLen, LengthMember)                   \
   (sizeof(*Buffer) > BufferLen ||                                              \
    (sizeof(*Buffer) + Buffer->##LengthMember > BufferLen))
+
 #define BUFFERLEN_SIZE_COMPARE(Buffer, BufferLen)                              \
   CUSTOM_SIZE_COMPARE(Buffer, BufferLen, LengthMember)
 #define PATHNAME_REQUEST_SIZE_COMPARE(Buffer, BufferLen)                       \
@@ -73,6 +91,7 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
   CUSTOM_SIZE_COMPARE(Buffer, BufferLen, Length)
 #define NAMELEN_SIZE_COMPARE(Buffer, BufferLen)                                \
   CUSTOM_SIZE_COMPARE(Buffer, BufferLen, NameLength)
+
 #define LEN_MAXIMUMLEN_SIZE_COMPARE(Buffer, BufferLen)                         \
   (sizeof(*Buffer) > BufferLen ||                                              \
    (sizeof(*Buffer) + Buffer->Length > BufferLen) ||                           \
@@ -98,6 +117,10 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 #define GET_IRP_GENERIC_BUFFER_BREAK(Irp, Buffer, BufferIOType)                \
   GET_IRP_GENERIC_BUFFER_BREAK2(Irp, Buffer, BufferIOType,                     \
                                 STATUS_BUFFER_TOO_SMALL, 0)
+// Return
+#define GET_IRP_GENERIC_BUFFER_RETURN(Irp, Buffer, BufferIOType)               \
+  GET_IRP_BUFFER_EX(Irp, Buffer, BufferIOType, GENERIC_SIZE_COMPARE,           \
+                    DOKAN_EXIT_RETURN, STATUS_BUFFER_TOO_SMALL, 0)
 
 // Get DeviceIOControl Buffer from IRP for EVENT_INFORMATION
 //#define GET_IRP_EVENT_INFORMATION_BUFFER(Irp, Buffer, BufferIOType)            \
