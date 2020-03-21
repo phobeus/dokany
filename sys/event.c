@@ -373,9 +373,8 @@ DokanCompleteIrp(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
   PDokanVCB vcb;
   PEVENT_INFORMATION eventInfo = NULL;
 
-  DDbgPrint("==> DokanCompleteIrp\n")
-
-  GET_IRP_GENERIC_BUFFER_RETURN(Irp, eventInfo, Input)
+  eventInfo = (PEVENT_INFORMATION)Irp->AssociatedIrp.SystemBuffer;
+  ASSERT(eventInfo != NULL);
 
   vcb = DeviceObject->DeviceExtension;
   if (GetIdentifierType(vcb) != VCB) {
