@@ -797,7 +797,9 @@ DokanEventWrite(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
   PEVENT_INFORMATION eventInfo = NULL;
   PIRP writeIrp;
 
-  GET_IRP_GENERIC_BUFFER_RETURN(Irp, eventInfo, Input)
+  //GET_IRP_GENERIC_BUFFER_RETURN(Irp, eventInfo, Input)
+  eventInfo = (PEVENT_INFORMATION)Irp->AssociatedIrp.SystemBuffer;
+  ASSERT(eventInfo != NULL);
 
   DDbgPrint("==> DokanEventWrite [EventInfo #%X]\n", eventInfo->SerialNumber);
 
