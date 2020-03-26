@@ -113,6 +113,8 @@ extern "C" {
  * done inside of CreateFile calls on Windows 7.
  */
 #define DOKAN_OPTION_OPTIMIZE_SINGLE_NAME_SEARCH 2048
+/** Allow umounting drive via explorer */
+#define DOKAN_OPTION_ALLOW_UMOUNT 4096
 
 /** @} */
 

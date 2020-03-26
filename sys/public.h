@@ -375,6 +375,7 @@ typedef struct _EVENT_INFORMATION {
 #define DOKAN_EVENT_FILELOCK_USER_MODE 32
 #define DOKAN_EVENT_DISABLE_OPLOCKS 64
 #define DOKAN_EVENT_OPTIMIZE_SINGLE_NAME_SEARCH 128
+#define DOKAN_EVENT_ALLOW_UMOUNT 256
 
 // Dokan debug log options
 #define DOKAN_DEBUG_NONE 0
@@ -442,6 +443,8 @@ typedef struct _DOKAN_CONTROL {
   PVOID64 DeviceObject;
   /** Session ID of calling process */
   ULONG SessionId;
+  /** Allow unmounting of device */
+  BOOLEAN AllowUnmount;
 } DOKAN_CONTROL, *PDOKAN_CONTROL;
 
 #endif // PUBLIC_H_

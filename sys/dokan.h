@@ -306,8 +306,12 @@ typedef struct _DokanDiskControlBlock {
   // this type of directory search is not common.
   BOOLEAN OptimizeSingleNameSearch;
 
+  BOOLEAN AllowUnmount;
+
   // Whether any oplock functionality should be disabled.
   BOOLEAN OplocksDisabled;
+
+  BOOLEAN AllowUnmount;
 } DokanDCB, *PDokanDCB;
 
 #define IS_DEVICE_READ_ONLY(DeviceObject)                                      \

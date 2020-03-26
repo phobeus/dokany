@@ -558,6 +558,7 @@ DokanEventStart(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
   BOOLEAN fileLockUserMode = FALSE;
   BOOLEAN oplocksDisabled = FALSE;
   BOOLEAN optimizeSingleNameSearch = FALSE;
+  BOOLEAN allowUnmount = FALSE;
   ULONG sessionId = (ULONG)-1;
   DOKAN_INIT_LOGGER(logger, DeviceObject->DriverObject, 0);
 
@@ -651,6 +652,11 @@ DokanEventStart(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
     optimizeSingleNameSearch = TRUE;
   }
 
+  if (eventStart->Flags & DOKAN_EVENT_ALLOW_UMOUNT) {
+    DDbgPrint("  Allowing unmount of drive\n");
+    allowUnmount = TRUE;
+  }
+
   KeEnterCriticalRegion();
   ExAcquireResourceExclusiveLite(&dokanGlobal->Resource, TRUE);
 
@@ -667,6 +673,7 @@ DokanEventStart(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
                      eventStart->MountPoint);
   }
   dokanControl.SessionId = sessionId;
+  dokanControl.AllowUnmount = allowUnmount;
 
   DDbgPrint("  Checking for MountPoint %ls \n", dokanControl.MountPoint);
   PMOUNT_ENTRY foundEntry = FindMountEntry(dokanGlobal, &dokanControl, FALSE);
@@ -719,6 +726,7 @@ DokanEventStart(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
   dcb->OplocksDisabled = oplocksDisabled;
   dcb->FileLockInUserMode = fileLockUserMode;
   dcb->OptimizeSingleNameSearch = optimizeSingleNameSearch;
+  dcb->AllowUnmount = allowUnmount;
   driverInfo->DeviceNumber = dokanGlobal->MountId;
   driverInfo->MountId = dokanGlobal->MountId;
   driverInfo->Status = DOKAN_MOUNTED;

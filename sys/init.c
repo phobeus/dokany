@@ -1471,6 +1471,7 @@ DokanCreateDiskDevice(__in PDRIVER_OBJECT DriverObject, __in ULONG MountId,
     }
     dokanControl->Type = DeviceType;
     dokanControl->SessionId = dcb->SessionId;
+    dokanControl->AllowUnmount = dcb->AllowUnmount;
 
     InsertMountEntry(DokanGlobal, dokanControl, FALSE);
   } __finally {
@@ -1509,6 +1510,7 @@ VOID DokanDeleteDeviceObject(__in PDokanDCB Dcb) {
   RtlCopyMemory(dokanControl.DeviceName, Dcb->DiskDeviceName->Buffer,
                 Dcb->DiskDeviceName->Length);
   dokanControl.SessionId = Dcb->SessionId;
+  dokanControl.AllowUnmount = Dcb->AllowUnmount;
   mountEntry = FindMountEntry(Dcb->Global, &dokanControl, TRUE);
   if (mountEntry != NULL) {
     if (mountEntry->MountControl.Type == FILE_DEVICE_NETWORK_FILE_SYSTEM) {

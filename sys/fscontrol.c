@@ -804,6 +804,7 @@ NTSTATUS DokanMountVolume(__in PDEVICE_OBJECT DiskDevice, __in PIRP Irp) {
                   dcb->UNCName->Length);
   }
   dokanControl.SessionId = dcb->SessionId;
+  dokanControl.AllowUnmount = dcb->AllowUnmount;
   mountEntry = FindMountEntry(dcb->Global, &dokanControl, TRUE);
   if (mountEntry != NULL) {
     mountEntry->MountControl.DeviceObject = volDeviceObject;

@@ -226,15 +226,22 @@ DWORD APIENTRY NPAddConnection3(__in HWND WndOwner,
 DWORD APIENTRY NPCancelConnection(__in LPWSTR Name, __in BOOL Force) {
   DbgPrintW(L"NpCancelConnection %s %d\n", Name, Force);
 
-  if (DokanRemoveMountPoint(Name)) {
-    DbgPrintW(L"NpCancelConnection: DokanRemoveMountPoint succeeded\n");
-    return WN_SUCCESS;
-  } else {
-    DbgPrintW(L"NpCancelConnection DokanRemoveMountPoint failed\n");
-    return WN_BAD_VALUE;
+  ULONG nbRead = 0;
+  PDOKAN_CONTROL dokanControl = DokanGetMountPointList(FALSE, &nbRead);
+
+  if (dokanControl->AllowUnmount) {
+    DokanReleaseMountPointList(dokanControl);
+    if (DokanRemoveMountPoint(Name)) {
+      DbgPrintW(L"NpCancelConnection: DokanRemoveMountPoint succeeded\n");
+      return WN_SUCCESS;
+    } else {
+      DbgPrintW(L"NpCancelConnection DokanRemoveMountPoint failed\n");
+      return WN_BAD_VALUE;
+    }
   }
 
   DbgPrintW(L"NpCancelConnection Disconnect was ignored\n");
+  DokanReleaseMountPointList(dokanControl);
 
   return WN_NO_ERROR;
 }

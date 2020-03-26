@@ -566,6 +566,7 @@ DiskDeviceControl(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp) {
                             dcb->UNCName->Length);
             }
             dokanControl->SessionId = dcb->SessionId;
+            dokanControl->AllowUnmount = dcb->AllowUnmount;
             mountEntry = FindMountEntry(dcb->Global, dokanControl, TRUE);
             ExFreePool(dokanControl);
             if (mountEntry != NULL) {
