@@ -403,6 +403,7 @@ typedef struct _EVENT_INFORMATION {
 #define DOKAN_EVENT_DISABLE_OPLOCKS                                 (1 << 6)
 #define DOKAN_EVENT_ENABLE_FCB_GC                                   (1 << 7)
 #define DOKAN_EVENT_CASE_SENSITIVE                                  (1 << 8)
+#define DOKAN_EVENT_ENABLE_NETWORK_UMOUNT                           (1 << 9)
 
 typedef struct _EVENT_DRIVER_INFO {
   ULONG DriverVersion;
@@ -472,6 +473,8 @@ typedef struct _DOKAN_CONTROL {
 #endif
   /** Session ID of calling process */
   ULONG SessionId;
+  /** Enables unmounting of network drives via explorer */
+  BOOLEAN EnableNetworkUnmount;
 } DOKAN_CONTROL, *PDOKAN_CONTROL;
 
 #endif // PUBLIC_H_

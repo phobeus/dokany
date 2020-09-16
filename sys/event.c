@@ -586,6 +586,7 @@ DokanEventStart(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
   BOOLEAN startFailure = FALSE;
   BOOLEAN isMountPointDriveLetter = FALSE;
   BOOLEAN caseSensitive = FALSE;
+  BOOLEAN enableNetworkUnmount = FALSE;
 
   DOKAN_INIT_LOGGER(logger, DeviceObject->DriverObject, 0);
 
@@ -699,6 +700,10 @@ DokanEventStart(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
     DDbgPrint("  Case sensitive enabled\n");
     caseSensitive = TRUE;
   }
+  if (eventStart->Flags & DOKAN_EVENT_ENABLE_NETWORK_UMOUNT) {
+    DDbgPrint("  Network unmount enabled\n");
+    enableNetworkUnmount = TRUE;
+  }
 
   KeEnterCriticalRegion();
   ExAcquireResourceExclusiveLite(&dokanGlobal->Resource, TRUE);
@@ -716,6 +721,7 @@ DokanEventStart(__in PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp) {
                      eventStart->MountPoint);
   }
   dokanControl.SessionId = sessionId;
+  dokanControl.EnableNetworkUnmount = enableNetworkUnmount;
 
   DDbgPrint("  Checking for MountPoint %ls \n", dokanControl.MountPoint);
   PMOUNT_ENTRY foundEntry = FindMountEntry(dokanGlobal, &dokanControl, FALSE);
